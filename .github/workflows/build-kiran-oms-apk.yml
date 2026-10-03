@@ -3,7 +3,8 @@ name: Build KIRAN OMS APK
 on:
   workflow_dispatch:
   push:
-    branches: [ main ]
+    branches:
+      - main
     paths:
       - "KIRAN_OMS_Android/**"
       - ".github/workflows/build-kiran-oms-apk.yml"
@@ -27,10 +28,12 @@ jobs:
           java-version: "17"
 
       - name: Accept Android SDK licenses
-        run: yes | "$SDKMANAGER" --licenses >/dev/null || true
+        run: |
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
 
       - name: Install Android SDK packages
-        run: "$SDKMANAGER" "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+        run: |
+          "$SDKMANAGER" "platform-tools" "platforms;android-35" "build-tools;35.0.0"
 
       - name: Set up Gradle 8.9
         uses: gradle/actions/setup-gradle@v4
@@ -39,10 +42,12 @@ jobs:
 
       - name: Build debug APK
         working-directory: KIRAN_OMS_Android
-        run: gradle :app:assembleDebug --stacktrace
+        run: |
+          gradle :app:assembleDebug --stacktrace
 
       - name: Rename APK
-        run: cp KIRAN_OMS_Android/app/build/outputs/apk/debug/app-debug.apk KIRAN_OMS_Android_V1.apk
+        run: |
+          cp KIRAN_OMS_Android/app/build/outputs/apk/debug/app-debug.apk KIRAN_OMS_Android_V1.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
