@@ -2,7 +2,6 @@ package in.kiran.oms;
 
 import android.app.Activity;
 import android.app.AlertDialog;
-import android.content.ColorStateList;
 import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.os.Build;
