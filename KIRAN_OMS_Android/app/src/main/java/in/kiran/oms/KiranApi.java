@@ -79,6 +79,13 @@ final class KiranApi {
         return postJson(normalize(server) + "api/backup", new JSONObject());
     }
 
+    static JSONObject saveValues(String server, JSONObject values, String clientId) throws Exception {
+        JSONObject body = new JSONObject();
+        body.put("client_id", clientId);
+        body.put("values", values);
+        return postJson(normalize(server) + "api/bulk", body);
+    }
+
     private static JSONObject getJson(String target) throws Exception {
         HttpURLConnection c = (HttpURLConnection) new URL(target).openConnection();
         c.setRequestMethod("GET");
