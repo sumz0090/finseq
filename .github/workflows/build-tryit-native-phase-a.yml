@@ -1,0 +1,39 @@
+name: Build TRYIT Native Phase A APK
+
+on:
+  push:
+    branches:
+      - tryit-native-phase-a-20261010
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+      - name: Install Android SDK 35
+        shell: bash
+        run: |
+          SDKROOT="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          SDKMANAGER="$SDKROOT/cmdline-tools/latest/bin/sdkmanager"
+          if [ ! -x "$SDKMANAGER" ]; then SDKMANAGER="$SDKROOT/cmdline-tools/16.0/bin/sdkmanager"; fi
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+      - name: Build Native Pilot APK
+        working-directory: tryit-native-phase-a
+        run: gradle --no-daemon :app:assembleDebug
+      - name: Prepare APK
+        run: cp tryit-native-phase-a/app/build/outputs/apk/debug/app-debug.apk TRYIT_Native_Pilot_PhaseA_v0.1.0.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TRYIT-Native-PhaseA-APK
+          path: TRYIT_Native_Pilot_PhaseA_v0.1.0.apk
+          if-no-files-found: error
