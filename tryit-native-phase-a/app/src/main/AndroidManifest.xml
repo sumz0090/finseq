@@ -11,8 +11,9 @@
         android:icon="@drawable/ic_tryit"
         android:roundIcon="@drawable/ic_tryit"
         android:theme="@style/AppTheme">
+        <activity android:name=".MainActivity" android:exported="false" android:screenOrientation="unspecified" android:windowSoftInputMode="adjustResize" />
         <activity
-            android:name=".MainActivity"
+            android:name=".PhaseBActivity"
             android:exported="true"
             android:screenOrientation="unspecified"
             android:windowSoftInputMode="adjustResize">
