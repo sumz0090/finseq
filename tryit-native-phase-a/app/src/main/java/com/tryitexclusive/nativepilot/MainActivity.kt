@@ -154,10 +154,12 @@ class MainActivity : FragmentActivity() {
 
         LaunchedEffect(Unit) {
             SessionEvents.expired.collect {
-                clearSession()
-                savedScreens.removeState("orders"); savedScreens.removeState("workspace")
-                resumeRoute = "home"; route = "login"
-                Toast.makeText(this@MainActivity, "Session expired. Please sign in again.", Toast.LENGTH_LONG).show()
+                withContext(Dispatchers.Main.immediate) {
+                    clearSession()
+                    savedScreens.removeState("orders"); savedScreens.removeState("workspace")
+                    resumeRoute = "home"; route = "login"
+                    Toast.makeText(this@MainActivity, "Session expired. Please sign in again.", Toast.LENGTH_LONG).show()
+                }
             }
         }
 
