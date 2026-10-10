@@ -141,6 +141,7 @@ if __name__ == '__main__':
     unittest.main()
 
 class WindowsRestartTests(unittest.TestCase):
+    phase_c = False
     @unittest.skipUnless(u.os.name == 'nt', 'Windows-only complete updater restart check')
     def test_real_server_apply_restart_and_rollback(self):
         import socket
@@ -150,7 +151,11 @@ class WindowsRestartTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp) / 'KIRAN_OMS_App'
             root.mkdir()
-            shutil.copy2(BASE / 'backend/extracted/KIRAN_OMS_App/server.py', root / 'server.py')
+            if self.phase_c:
+                for name in ('server.py', 'mobile_orders_api.py'):
+                    shutil.copy2(BASE / 'phasec_patch/payload' / name, root / name)
+            else:
+                shutil.copy2(BASE / 'backend/extracted/KIRAN_OMS_App/server.py', root / 'server.py')
             with socket.socket() as s:
                 s.bind(('127.0.0.1', 0)); port = s.getsockname()[1]
             original = subprocess.Popen([sys.executable, str(root / 'server.py'), '--no-open', '--port', str(port)], cwd=root)
@@ -164,7 +169,8 @@ class WindowsRestartTests(unittest.TestCase):
                 with patch.object(sys, 'argv', ['update_all_phases.py', '--app-folder', str(root), '--rollback']):
                     u.main()
                 self.assertFalse(u.validate(root)[1])
-                self.assertFalse((root / 'mobile_orders_api.py').exists())
+                self.assertEqual((root / 'mobile_orders_api.py').exists(), self.phase_c)
+                self.assertFalse((root / 'mobile_workspace_api.py').exists())
                 u.probe(port, False)
             finally:
                 if original.poll() is None:
@@ -211,3 +217,7 @@ class PhaseCUpgradeTests(UpdaterTests):
             with self.assertRaises(OSError): u.apply_files(self.root, manifest, location)
         for name, content in self.original.items():
             self.assertEqual((self.root / name).read_bytes(), content)
+
+
+class WindowsPhaseCRestartTests(WindowsRestartTests):
+    phase_c = True

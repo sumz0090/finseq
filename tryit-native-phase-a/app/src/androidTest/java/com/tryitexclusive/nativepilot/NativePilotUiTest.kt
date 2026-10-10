@@ -1,6 +1,9 @@
 package com.tryitexclusive.nativepilot
 
 import android.content.Context
+import android.util.Base64
+import androidx.lifecycle.Lifecycle
+import java.security.MessageDigest
 import android.content.pm.ActivityInfo
 import android.view.WindowManager
 import androidx.compose.ui.test.*
@@ -116,6 +119,23 @@ class NativePilotUiTest {
         assertEquals(0,fixture.writes.size)
     }
 
+    @Test fun pinLockBlocksBackAndRestoresMasterDraft(){
+        openModules();openModule("Masters");waitText("Create Party");compose.onNodeWithText("Create Party").performClick();waitText("Name *")
+        compose.onNodeWithText("Name *").performTextInput("QA LOCK DRAFT")
+        val secure=SecureStore(ApplicationProvider.getApplicationContext())
+        val salt=ByteArray(16){it.toByte()};val digest=MessageDigest.getInstance("SHA-256").apply{update(salt);update("1234".toByteArray(StandardCharsets.UTF_8))}.digest()
+        secure.put("pin_salt",Base64.encodeToString(salt,Base64.NO_WRAP));secure.put("pin_hash",Base64.encodeToString(digest,Base64.NO_WRAP));secure.put("lock_mode","pin");secure.put("lock_timeout","0")
+        compose.activityRule.scenario.moveToState(Lifecycle.State.CREATED)
+        compose.activityRule.scenario.moveToState(Lifecycle.State.RESUMED)
+        waitText("TRYIT Locked")
+        androidx.test.espresso.Espresso.pressBack()
+        compose.onNodeWithText("TRYIT Locked").assertIsDisplayed()
+        compose.onNodeWithText("App PIN").performTextInput("9999");compose.onNodeWithText("Unlock",substring=false).performClick();waitText("Incorrect PIN")
+        compose.onNodeWithText("App PIN").performTextReplacement("1234");compose.onNodeWithText("Unlock",substring=false).performClick();waitText("QA LOCK DRAFT")
+        compose.onNodeWithText("Name *").assertTextContains("QA LOCK DRAFT")
+        assertEquals(0,fixture.writes.size)
+    }
+
     @Test fun networkLossShowsRetryAndDoesNotWrite(){
         fixture.close();compose.onNodeWithText("All Modules").performClick();waitText("Retry")
         compose.onNodeWithText("Retry").assertIsDisplayed()
@@ -126,7 +146,7 @@ class NativePilotUiTest {
         openModules();fixture.expired=true
         compose.onNodeWithContentDescription("Refresh").performClick()
         compose.waitUntil(15000){compose.onAllNodesWithText("All Modules").fetchSemanticsNodes().isEmpty()&&compose.onAllNodesWithText("Your workspace").fetchSemanticsNodes().isEmpty()}
-        assertTrue(SecureStore(ApplicationProvider.getApplicationContext()).get("session_cookie").isBlank())
+        compose.waitUntil(15000){SecureStore(ApplicationProvider.getApplicationContext()).get("session_cookie").isBlank()}
     }
 
     @Test fun responsiveRotationAndSensitiveWindowProtection(){

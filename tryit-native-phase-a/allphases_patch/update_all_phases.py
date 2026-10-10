@@ -361,7 +361,7 @@ def main():
             print('Original server restored and restarted.')
         raise
     print('SUCCESS: ' + ('Original server restored.' if args.rollback else 'Native D-H APIs installed; server restarted.'))
-    print('Refresh existing web clients. Install All Phases APK over Phase B on Android.')
+    print('Refresh existing web clients. Install All Phases APK over the existing Phase C app on Android.')
 
 
 if __name__ == '__main__':
