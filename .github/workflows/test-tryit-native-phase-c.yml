@@ -6,6 +6,7 @@ on:
       - 'tryit-native-phase-a/phasec_patch/**'
       - 'tryit-native-phase-a/phasec_tests/**'
       - 'tryit-native-phase-a/backend/**'
+      - 'tryit-native-phase-a/.gitattributes'
       - '.github/workflows/test-tryit-native-phase-c.yml'
   workflow_dispatch:
 jobs:
