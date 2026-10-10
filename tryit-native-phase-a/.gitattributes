@@ -1,0 +1,3 @@
+# Preserve exact shipped bytes for updater fingerprint verification.
+phasec_patch/** -text
+backend/extracted/KIRAN_OMS_App/server.py -text
