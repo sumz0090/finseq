@@ -43,7 +43,7 @@ private val BGreen = ComposeColor(0xFF0E9F6E)
 private val BAmber = ComposeColor(0xFFF59E0B)
 
     @Composable
-    fun NativeDashboard(secure:SecureStore, profile:UserProfile,onProfile:()->Unit,onSettings:()->Unit,onLogout:()->Unit, onLock:()->Unit, onOrders:(String)->Unit) {
+    fun NativeDashboard(secure:SecureStore, profile:UserProfile,onProfile:()->Unit,onSettings:()->Unit,onLogout:()->Unit, onLock:()->Unit, onOrders:(String)->Unit, onModules:()->Unit) {
         var period by rememberSaveable { mutableStateOf("This Month") }
         var customFrom by rememberSaveable { mutableStateOf("") }
         var customTo by rememberSaveable { mutableStateOf("") }
@@ -76,7 +76,7 @@ private val BAmber = ComposeColor(0xFFF59E0B)
         }) { pad ->
             Column(Modifier.padding(pad).fillMaxSize().verticalScroll(rememberScrollState()).padding(14.dp)) {
                 Surface(shape=RoundedCornerShape(22.dp),color=BNavy){Column(Modifier.padding(18.dp)){Text("Operations Dashboard",color=ComposeColor.White,fontSize=25.sp,fontWeight=FontWeight.Black);Text("Live OMS data • same period across all dashboard widgets",color=ComposeColor(0xFFCBD5E1))}}
-                Spacer(Modifier.height(12.dp)); Button({onOrders("")},modifier=Modifier.fillMaxWidth()){Icon(Icons.Default.ReceiptLong,null);Spacer(Modifier.width(6.dp));Text("Open Orders")};Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(12.dp)); Button({onOrders("")},modifier=Modifier.fillMaxWidth()){Icon(Icons.Default.ReceiptLong,null);Spacer(Modifier.width(6.dp));Text("Open Orders")};Spacer(Modifier.height(8.dp)); OutlinedButton(onModules,modifier=Modifier.fillMaxWidth()){Icon(Icons.Default.Apps,null);Spacer(Modifier.width(6.dp));Text("All Modules")};Spacer(Modifier.height(12.dp))
                 Surface(shape=RoundedCornerShape(18.dp),color=ComposeColor.White){Column(Modifier.padding(14.dp)){
                     Box{OutlinedButton({expanded=true}){Icon(Icons.Default.DateRange,null);Spacer(Modifier.width(6.dp));Text(period)};DropdownMenu(expanded,{expanded=false}){listOf("Today","Yesterday","Last 7 Days","This Month","Last Month","Last 30 Days","This Quarter","Financial Year","Custom").forEach{p->DropdownMenuItem({Text(p)},{period=p;expanded=false})}}}
                     if(period=="Custom") {Spacer(Modifier.height(8.dp));Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){OutlinedTextField(customFrom,{customFrom=it},label={Text("From YYYY-MM-DD")},modifier=Modifier.weight(1f),singleLine=true);OutlinedTextField(customTo,{customTo=it},label={Text("To YYYY-MM-DD")},modifier=Modifier.weight(1f),singleLine=true)}}
@@ -151,6 +151,7 @@ object DashboardApi {
             c.requestMethod="GET";c.instanceFollowRedirects=false;c.connectTimeout=9000;c.readTimeout=15000
             c.setRequestProperty("Accept","application/json");c.setRequestProperty("Cookie",cookie)
             val code=c.responseCode
+            if(code==401)SessionEvents.expired.tryEmit(Unit)
             if(code !in 200..299) null to if(code==401||code==403) "Session expired or access denied. Please log in again." else "Dashboard request failed ($code)"
             else {
                 val j=JSONObject(c.inputStream.bufferedReader().use{it.readText()})

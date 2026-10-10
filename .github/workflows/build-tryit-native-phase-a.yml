@@ -1,4 +1,4 @@
-name: Build TRYIT Native Phase C APK
+name: Build TRYIT Native All Phases APK
 
 on:
   push:
@@ -29,11 +29,11 @@ jobs:
           "$SDKMANAGER" "platform-tools" "platforms;android-35" "build-tools;35.0.0"
       - name: Build Native Pilot APK
         working-directory: tryit-native-phase-a
-        run: gradle --no-daemon :app:assembleDebug
+        run: gradle --no-daemon :app:assembleRelease
       - name: Prepare APK
-        run: cp tryit-native-phase-a/app/build/outputs/apk/debug/app-debug.apk TRYIT_Native_Pilot_PhaseC_v0.3.0.apk
+        run: cp tryit-native-phase-a/app/build/outputs/apk/release/app-release-unsigned.apk TRYIT_Native_All_Phases_v1.0.0.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: TRYIT-Native-PhaseC-APK
-          path: TRYIT_Native_Pilot_PhaseC_v0.3.0.apk
+          name: TRYIT-Native-All-Phases-APK
+          path: TRYIT_Native_All_Phases_v1.0.0.apk
           if-no-files-found: error

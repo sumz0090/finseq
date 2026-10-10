@@ -62,10 +62,11 @@ object OrdersApi {
             c.setRequestProperty("Cookie",secure.get("session_cookie"))
             if(body!=null){c.doOutput=true;c.setRequestProperty("Content-Type","application/json");c.outputStream.use{it.write(body.toString().toByteArray(Charsets.UTF_8))}}
             val code=c.responseCode
+            if(code==401)SessionEvents.expired.tryEmit(Unit)
             val text=(if(code in 200..299)c.inputStream else c.errorStream)?.bufferedReader()?.use{it.readText()}.orEmpty()
             val j=runCatching{JSONObject(text)}.getOrNull()
             if(code in 200..299 && j?.optBoolean("ok")==true) OrderResponse(j,code=code)
-            else OrderResponse(j,when(code){404->"Install the Phase C server patch on the OMS PC, then tap Retry.";401->"Session expired. Return to Dashboard and log in again.";else->j?.optString("error")?.ifBlank{"Request failed ($code)"}?:"Request failed ($code)"},code)
+            else OrderResponse(j,when(code){404->"Install the combined server patch on the OMS PC, then tap Retry.";401->"Session expired. Return to Dashboard and log in again.";else->j?.optString("error")?.ifBlank{"Request failed ($code)"}?:"Request failed ($code)"},code)
         } finally {c.disconnect()}
     } catch(e:Exception){OrderResponse(error="Unable to reach server. ${e.message.orEmpty()}")}
 
@@ -76,7 +77,7 @@ object OrdersApi {
 }
 
 @Composable
-fun NativeOrders(secure:SecureStore,onHome:()->Unit,initialOrder:String="") {
+fun NativeOrders(secure:SecureStore,onHome:()->Unit,initialOrder:String="",returnToSource:Boolean=false) {
     var context by remember { mutableStateOf<OrderContext?>(null) }
     var loading by remember { mutableStateOf(false) }
     var loadError by remember { mutableStateOf("") }
@@ -108,19 +109,19 @@ fun NativeOrders(secure:SecureStore,onHome:()->Unit,initialOrder:String="") {
             saving=false
             if(r.error.isBlank()&&r.json!=null){
                 selectedId=r.json.optJSONArray("orders")?.optJSONObject(0)?.optJSONObject("data")?.optString("orderNo").orEmpty()
-                route=if(context?.can("orders_view")==true) "detail" else "list";statusOpen=false;pending=null;toast="Saved on server";reload()
+                route=if(listOf("orders_view","production_view","dispatch_view","accounts_view","reports_view").any{context?.can(it)==true}) "detail" else "list";statusOpen=false;pending=null;toast="Saved on server";reload()
             } else error=r
         }
     }
     LaunchedEffect(Unit){reload()}
     BackHandler {
         if(saving) return@BackHandler
-        when {statusOpen->statusOpen=false; route=="edit"->route="detail";route=="create"||route=="detail"->route="list";else->onHome()}
+        when {statusOpen->statusOpen=false; route=="edit"->route="detail";route=="detail"&&returnToSource->onHome();route=="create"||route=="detail"->route="list";else->onHome()}
     }
     Column(Modifier.fillMaxSize().background(CSoft).statusBarsPadding().navigationBarsPadding()) {
         Surface(color=CNavy){Row(Modifier.fillMaxWidth().height(64.dp).padding(horizontal=8.dp),verticalAlignment=Alignment.CenterVertically){
-            IconButton({if(!saving){if(route=="list")onHome() else if(route=="edit")route="detail" else route="list"}}){Icon(Icons.Default.ArrowBack,"Back",tint=Color.White)}
-            Column(Modifier.weight(1f)){Text(if(route=="create")"New Order" else if(route=="edit")"Edit Order" else "Orders",color=Color.White,fontWeight=FontWeight.Bold,fontSize=21.sp);Text("TRYIT • Native Phase C",color=Color(0xFFCBD5E1),fontSize=11.sp)}
+            IconButton({if(!saving){if(route=="list")onHome() else if(route=="edit")route="detail" else if(route=="detail"&&returnToSource)onHome() else route="list"}}){Icon(Icons.Default.ArrowBack,"Back",tint=Color.White)}
+            Column(Modifier.weight(1f)){Text(if(route=="create")"New Order" else if(route=="edit")"Edit Order" else "Orders",color=Color.White,fontWeight=FontWeight.Bold,fontSize=21.sp);Text("TRYIT • Native All Phases",color=Color(0xFFCBD5E1),fontSize=11.sp)}
             if(route=="list"||route=="detail") IconButton({if(!saving)reload()}){Icon(Icons.Default.Refresh,"Refresh",tint=Color.White)}
         }}
         if(loading||saving) LinearProgressIndicator(Modifier.fillMaxWidth())
@@ -182,7 +183,7 @@ private fun OrdersList(ctx:OrderContext,onOpen:(String)->Unit,onCreate:()->Unit)
         item {CField("Search order, party, article, factory…",search,{search=it})}
         item {Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){CPicker("Status",status,listOf("All","Pending","In Production","Ready","Hold","Dispatched","Cancelled"),{status=it},Modifier.weight(1f));OutlinedButton({filters=!filters},Modifier.heightIn(min=54.dp)){Icon(Icons.Default.FilterList,null);Text("Filters")}}}
         if(filters) item {CCard {CPicker("Period",period,listOf("All Dates","Today","Yesterday","Last 7 Days","This Month","Last Month","Last 30 Days","This Quarter","Financial Year","Custom"),{period=it});if(period=="Custom"){CField("From • YYYY-MM-DD",from,{from=it});CField("To • YYYY-MM-DD",to,{to=it})};if(dateError)Text("Enter a valid date range.",color=MaterialTheme.colorScheme.error);listOf("Party" to "party","Factory" to "factory","Article" to "article","Colour" to "colour","Material" to "material","D/M/L" to "dml").forEach{(label,key)->val value=when(key){"party"->party;"factory"->factory;"article"->article;"colour"->colour;"material"->material;else->dml};CPicker(label,value,listOf("All")+ctx.rows.map{it.data.optString(key)}.filter{it.isNotBlank()}.distinct().sorted(),{when(key){"party"->party=it;"factory"->factory=it;"article"->article=it;"colour"->colour=it;"material"->material=it;else->dml=it}})};TextButton({search="";status="All";period="All Dates";party="All";factory="All";article="All";colour="All";material="All";dml="All";from="";to=""}){Text("Reset filters")}}}
-        if(!ctx.can("orders_view"))item{Text("Order viewing permission is not enabled. You can create orders if allowed.")}
+        if(!listOf("orders_view","production_view","dispatch_view","accounts_view","reports_view").any{ctx.can(it)})item{Text("Order viewing permission is not enabled. You can create orders if allowed.")}
         else if(filtered.isEmpty())item{CCard{Text("No orders match these filters.")}}
         items(filtered.drop(page*pageSize.toInt()).take(pageSize.toInt()),key={it.id}) {o->COrderCard(o){onOpen(o.id)}}
         item {Row(verticalAlignment=Alignment.CenterVertically){CPicker("Per page",pageSize,listOf("20","50","100"),{pageSize=it},Modifier.width(110.dp));Spacer(Modifier.weight(1f));IconButton({page--},enabled=page>0){Icon(Icons.Default.ChevronLeft,"Previous page")};Text("${page+1}/$pages");IconButton({page++},enabled=page+1<pages){Icon(Icons.Default.ChevronRight,"Next page")}}}
