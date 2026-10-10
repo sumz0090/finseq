@@ -1,0 +1,22 @@
+{
+  "phase": "Native All Phases v1.0.0",
+  "compatible_bases": [
+    {
+      "name": "Phase 10.37/10.38",
+      "server_sha256": "34fa19fcaea872d59b3653ec5f2f38e33184dab84731ff92cfabe311150da0bb",
+      "existing_addons": {}
+    },
+    {
+      "name": "Native Phase C",
+      "server_sha256": "d910ed12106a93e122f9849a3368ff3ae51627bc58efbaa69d66bd851a4a2c2c",
+      "existing_addons": {
+        "mobile_orders_api.py": "cf3713a87a9bfedda0e05c61643de8f219dce0ddfb7b7e4d0baaa68c7e07e78c"
+      }
+    }
+  ],
+  "files": {
+    "server.py": "0ea31123740bb6747843f2cd6500b81b69d59186ed06dc290b7f6a950c2e2e28",
+    "mobile_workspace_api.py": "fc28283395ab41f1da49e3dde9017cd5822ccca9dbe2ba07c2861c6bd504d8ea",
+    "mobile_orders_api.py": "476c2b811e3de7aa6eebe364d07e024ce6d79842363978902bd8831676d0bff8"
+  }
+}
