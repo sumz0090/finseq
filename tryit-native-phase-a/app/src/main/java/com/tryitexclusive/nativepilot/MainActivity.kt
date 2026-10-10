@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color as ComposeColor
@@ -66,6 +67,7 @@ class MainActivity : FragmentActivity() {
         window.statusBarColor = Color.rgb(11, 24, 48)
         secure = SecureStore(this)
         ensureDeviceId()
+        window.addFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE)
 
         setContent {
             MaterialTheme(
@@ -143,10 +145,14 @@ class MainActivity : FragmentActivity() {
     private fun TryItApp() {
         var route by rememberSaveable { mutableStateOf(initialRoute()) }
         var profile by remember { mutableStateOf(loadStoredProfile()) }
+        var resumeRoute by rememberSaveable { mutableStateOf("home") }
+        var ordersInitialId by rememberSaveable { mutableStateOf("") }
+        val savedScreens = rememberSaveableStateHolder()
         val scope = rememberCoroutineScope()
 
         LaunchedEffect(lockRequested) {
             if (lockRequested && secure.get("session_cookie").isNotBlank()) {
+                if(route !in listOf("unlock","login","locksetup")) resumeRoute = route
                 route = "unlock"
                 lockRequested = false
             }
@@ -220,15 +226,17 @@ class MainActivity : FragmentActivity() {
                 mode = secure.get("lock_mode"),
                 onSystemUnlock = { success, error -> launchSystemUnlock(success, error) },
                 verifyPin = { verifyPin(it) },
-                onUnlocked = { route = "home" },
+                onUnlocked = { route = resumeRoute },
                 onLogout = {
                     scope.launch {
                         logoutRemote()
                         clearSession()
+                        savedScreens.removeState("orders"); resumeRoute = "home"
                         route = "login"
                     }
                 }
             )
+            "orders" -> savedScreens.SaveableStateProvider("orders") { NativeOrders(secure, onHome = { route = "home" }, initialOrder = ordersInitialId) }
             "profile" -> ProfileScreen(profile = profile, onBack = { route = "home" })
             "settings" -> SettingsScreen(
                 currentMode = secure.get("lock_mode"),
@@ -244,16 +252,18 @@ class MainActivity : FragmentActivity() {
             else -> NativeDashboard(
                 secure = secure,
                 profile = profile,
+                onOrders = { id -> ordersInitialId = id; savedScreens.removeState("orders"); route = "orders" },
                 onProfile = { route = "profile" },
                 onSettings = { route = "settings" },
                 onLock = {
                     val mode = secure.get("lock_mode")
-                    if (mode != "none" && mode.isNotBlank()) route = "unlock"
+                    if (mode != "none" && mode.isNotBlank()) { resumeRoute = "home"; route = "unlock" }
                 },
                 onLogout = {
                     scope.launch {
                         logoutRemote()
                         clearSession()
+                        savedScreens.removeState("orders"); resumeRoute = "home"
                         route = "login"
                     }
                 }
@@ -346,7 +356,7 @@ class MainActivity : FragmentActivity() {
                 Surface(shape = RoundedCornerShape(24.dp), color = ComposeColor.White, shadowElevation = 8.dp) {
                     Column(Modifier.padding(22.dp).widthIn(max = 480.dp)) {
                         Text("TRYIT", fontSize = 32.sp, fontWeight = FontWeight.Black, color = Navy)
-                        Text("Native Pilot • Phase B", color = Red, fontWeight = FontWeight.SemiBold)
+                        Text("Native Pilot • Phase C", color = Red, fontWeight = FontWeight.SemiBold)
                         Spacer(Modifier.height(22.dp))
                         Text("Sign in", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Navy)
                         Text("Use your existing KIRAN OMS account.", color = ComposeColor(0xFF64748B))
@@ -376,7 +386,7 @@ class MainActivity : FragmentActivity() {
                             else Text("Log In", fontWeight = FontWeight.Bold)
                         }
                         Spacer(Modifier.height(14.dp))
-                        Text("App version 0.2.1 • Native Android", color = ComposeColor(0xFF94A3B8), fontSize = 12.sp)
+                        Text("App version 0.3.0 • Native Android", color = ComposeColor(0xFF94A3B8), fontSize = 12.sp)
                     }
                 }
             }
@@ -518,7 +528,7 @@ class MainActivity : FragmentActivity() {
                 Surface(shape = RoundedCornerShape(22.dp), color = Navy) {
                     Column(Modifier.padding(20.dp)) {
                         Text("Native Foundation Ready", color = ComposeColor.White, fontSize = 24.sp, fontWeight = FontWeight.Black)
-                        Text("Phase B • Login, secure session, app lock, profile and settings", color = ComposeColor(0xFFCBD5E1))
+                        Text("Phase C • Login, secure session, app lock, profile and settings", color = ComposeColor(0xFFCBD5E1))
                     }
                 }
                 Spacer(Modifier.height(16.dp))
@@ -532,7 +542,7 @@ class MainActivity : FragmentActivity() {
                     StatusTile("Native", "Android", Icons.Default.PhoneAndroid, Modifier.weight(1f))
                 }
                 Spacer(Modifier.height(20.dp))
-                Text("Phase B controls", fontWeight = FontWeight.Bold, color = Navy)
+                Text("Phase C controls", fontWeight = FontWeight.Bold, color = Navy)
                 Spacer(Modifier.height(8.dp))
                 ActionCard(Icons.Default.Person, "My Profile", "View account details loaded from OMS", onProfile)
                 Spacer(Modifier.height(10.dp))
@@ -600,7 +610,7 @@ class MainActivity : FragmentActivity() {
                 }
                 Spacer(Modifier.height(22.dp))
                 Text("App & Device", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Navy)
-                ProfileRow("Version", "0.2.1 Phase B")
+                ProfileRow("Version", "0.3.0 Phase C")
                 ProfileRow("Server", server.ifBlank { "Not configured" })
                 ProfileRow("Device ID", deviceId)
                 ProfileRow("Package", "com.tryitexclusive.nativepilot")

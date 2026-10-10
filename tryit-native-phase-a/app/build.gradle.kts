@@ -12,8 +12,8 @@ android {
         applicationId = "com.tryitexclusive.nativepilot"
         minSdk = 26
         targetSdk = 35
-        versionCode = 3
-        versionName = "0.2.1-phaseB"
+        versionCode = 4
+        versionName = "0.3.0-phaseC"
     }
 
     buildFeatures { compose = true }
