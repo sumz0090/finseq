@@ -1,0 +1,22 @@
+name: Verify Native Orders API and Windows Updater
+on:
+  push:
+    branches: [tryit-native-phase-a-20261010]
+    paths:
+      - 'tryit-native-phase-a/phasec_patch/**'
+      - 'tryit-native-phase-a/phasec_tests/**'
+      - 'tryit-native-phase-a/backend/**'
+      - '.github/workflows/test-tryit-native-phase-c.yml'
+  workflow_dispatch:
+jobs:
+  phase-c-checks:
+    runs-on: windows-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Test API, HTTP integration, patch safety and real Windows restart
+        working-directory: tryit-native-phase-a
+        run: python -m unittest discover -s phasec_tests -v

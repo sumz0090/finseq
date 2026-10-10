@@ -1,0 +1,9 @@
+{
+  "phase": "Native Phase C v0.3.0",
+  "compatible_base": "Phase 10.37 server (also unchanged server in Phase 10.38)",
+  "base_server_sha256": "34fa19fcaea872d59b3653ec5f2f38e33184dab84731ff92cfabe311150da0bb",
+  "files": {
+    "server.py": "d910ed12106a93e122f9849a3368ff3ae51627bc58efbaa69d66bd851a4a2c2c",
+    "mobile_orders_api.py": "cf3713a87a9bfedda0e05c61643de8f219dce0ddfb7b7e4d0baaa68c7e07e78c"
+  }
+}
