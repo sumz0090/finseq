@@ -293,6 +293,11 @@ def mutate(g, sess, body):
             entry = copy.deepcopy(old or {})
             for field in ('name', 'code', 'phone', 'email', 'address', 'type', 'status', 'notes'):
                 entry[field] = text(fields.get(field, entry.get(field, '')))
+            if category == 'party':
+                rating = integer(fields.get('rating', entry.get('rating', 0)))
+                if rating > 3:
+                    raise ApiError('Party rating must be from 0 to 3.')
+                entry['rating'] = rating
             entry['name'] = entry['name'].upper(); entry['code'] = entry['code'].upper()
             if not entry['name']:
                 raise ApiError('Name is required.')

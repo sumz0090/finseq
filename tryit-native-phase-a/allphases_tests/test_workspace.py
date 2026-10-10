@@ -38,6 +38,16 @@ class WorkspaceTests(unittest.TestCase):
         self.assertIn('NEW SOLE', self.get('st_soles'))
         self.assertTrue(any(b['name'] == 'NEW BOX' for b in self.get('st_boxes')))
 
+    def test_party_rating_range_and_profile_preservation(self):
+        api.mutate(self.g, self.admin, self.body('master_create', category='party', fields={'name': 'RATED PARTY', 'rating': 3}))
+        old = next(m for m in self.get('st_masters')['party'] if m['name'] == 'RATED PARTY')
+        api.mutate(self.g, self.admin, self.body('master_edit', category='party', old_name=old['name'], expected_token=api.token(old), fields={'phone': '12345'}))
+        self.assertEqual(self.get('st_masters')['party'][-1]['rating'], 3)
+        before = copy.deepcopy(self.state)
+        with self.assertRaises(api.ApiError):
+            api.mutate(self.g, self.admin, self.body('master_create', category='party', fields={'name': 'BAD RATING', 'rating': 4}))
+        self.assertEqual(before, self.state)
+
     def test_duplicate_name_and_party_code_refused(self):
         for fields in ({'name': 'party'}, {'name': 'NEW PARTY', 'code': 'p01'}):
             before = copy.deepcopy(self.state)
