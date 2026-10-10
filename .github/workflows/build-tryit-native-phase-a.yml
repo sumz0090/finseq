@@ -1,4 +1,4 @@
-name: Build TRYIT Native Phase A APK
+name: Build TRYIT Native Phase B APK
 
 on:
   push:
@@ -31,9 +31,9 @@ jobs:
         working-directory: tryit-native-phase-a
         run: gradle --no-daemon :app:assembleDebug
       - name: Prepare APK
-        run: cp tryit-native-phase-a/app/build/outputs/apk/debug/app-debug.apk TRYIT_Native_Pilot_PhaseA_v0.1.0.apk
+        run: cp tryit-native-phase-a/app/build/outputs/apk/debug/app-debug.apk TRYIT_Native_Pilot_PhaseB_v0.2.0.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: TRYIT-Native-PhaseA-APK
-          path: TRYIT_Native_Pilot_PhaseA_v0.1.0.apk
+          name: TRYIT-Native-PhaseB-APK
+          path: TRYIT_Native_Pilot_PhaseB_v0.2.0.apk
           if-no-files-found: error
