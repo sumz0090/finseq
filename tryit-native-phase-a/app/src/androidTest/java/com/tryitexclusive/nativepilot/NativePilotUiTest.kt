@@ -130,7 +130,7 @@ class NativePilotUiTest {
         compose.activityRule.scenario.moveToState(Lifecycle.State.CREATED)
         compose.activityRule.scenario.moveToState(Lifecycle.State.RESUMED)
         waitText("TRYIT Locked")
-        androidx.test.espresso.Espresso.pressBack()
+        androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)
         compose.onNodeWithText("TRYIT Locked").assertIsDisplayed()
         compose.onNodeWithText("App PIN").performTextInput("9999");compose.onNodeWithText("Unlock",substring=false).performClick();waitText("Incorrect PIN")
         compose.onNodeWithText("App PIN").performTextReplacement("1234");compose.onNodeWithText("Unlock",substring=false).performClick();waitText("QA LOCK DRAFT")
