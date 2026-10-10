@@ -39,7 +39,7 @@ import java.util.UUID
 private val CNavy = Color(0xFF0B1830)
 private val CBlue = Color(0xFF2563EB)
 private val CSoft = Color(0xFFF4F7FB)
-private val CDmy = DateTimeFormatter.ofPattern("dd-MM-uuuu")
+private val CDmy = DateTimeFormatter.ofPattern("dd-MM-uuuu").withResolverStyle(java.time.format.ResolverStyle.STRICT)
 
 data class OrderRow(val data:JSONObject, val token:String) {
     val id:String get()=data.optString("orderNo")
@@ -108,7 +108,7 @@ fun NativeOrders(secure:SecureStore,onHome:()->Unit,initialOrder:String="") {
             saving=false
             if(r.error.isBlank()&&r.json!=null){
                 selectedId=r.json.optJSONArray("orders")?.optJSONObject(0)?.optJSONObject("data")?.optString("orderNo").orEmpty()
-                route="detail";statusOpen=false;pending=null;toast="Saved on server";reload()
+                route=if(context?.can("orders_view")==true) "detail" else "list";statusOpen=false;pending=null;toast="Saved on server";reload()
             } else error=r
         }
     }
@@ -215,7 +215,7 @@ private fun OrderDetail(o:OrderRow,ctx:OrderContext,onEdit:()->Unit,onStatus:(St
             "Activity"->item{OrderActivity(ctx,o)}
         }
         if(ctx.can("orders_edit"))item{Button(onEdit,enabled=!saving,modifier=Modifier.fillMaxWidth()){Icon(Icons.Default.Edit,null);Spacer(Modifier.width(6.dp));Text("Edit this line")}}
-        item{CCard{Text("Status actions",fontWeight=FontWeight.Bold);val st=j.optString("status","Pending");val actions=buildList{if(!j.optBoolean("hold")){if(st=="Pending"&&ctx.can("production_edit"))add("In Production");if(st=="In Production"&&ctx.can("production_approve"))add("Ready");if(st in listOf("In Production","Ready")&&ctx.can("dispatch_approve"))add("Dispatched")};if(ctx.can("orders_edit")&&st!="Cancelled"){if(st!="Dispatched")add(if(j.optBoolean("hold"))"Resume" else "Hold");add("Cancelled")};actions.forEach{t->OutlinedButton({onStatus(t)},enabled=!saving,modifier=Modifier.fillMaxWidth()){Text(t)}};if(actions.isEmpty())Text("No permitted status actions for this line.",fontSize=12.sp)}}
+        item{CCard{Text("Status actions",fontWeight=FontWeight.Bold);val st=j.optString("status","Pending");val actions=buildList{if(!j.optBoolean("hold")){if(st=="Pending"&&ctx.can("production_edit"))add("In Production");if(st=="In Production"&&ctx.can("production_approve"))add("Ready");if(st in listOf("In Production","Ready")&&ctx.can("dispatch_approve"))add("Dispatched")};if(ctx.can("orders_edit")&&st!="Cancelled"){if(st!="Dispatched")add(if(j.optBoolean("hold"))"Resume" else "Hold");add("Cancelled")}};actions.forEach{t->OutlinedButton({onStatus(t)},enabled=!saving,modifier=Modifier.fillMaxWidth()){Text(t)}};if(actions.isEmpty())Text("No permitted status actions for this line.",fontSize=12.sp)}}
     }
 }
 
