@@ -5,6 +5,7 @@ import android.util.Base64
 import androidx.lifecycle.Lifecycle
 import java.security.MessageDigest
 import android.content.pm.ActivityInfo
+import android.content.res.Configuration
 import android.view.WindowManager
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -89,7 +90,8 @@ class NativePilotUiTest {
     @get:Rule val chain:RuleChain=RuleChain.outerRule(setup).around(compose)
     private fun waitText(text:String){compose.waitUntil(20000){compose.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty()}}
     private fun openModules(){waitText("All Modules");compose.onNodeWithText("All Modules").performClick();waitText("Your workspace")}
-    private fun openModule(name:String){compose.onNodeWithText(name).performScrollTo().performClick()}
+    private fun scrollToModule(name:String){compose.onNode(hasScrollToIndexAction()).performScrollToNode(hasText(name))}
+    private fun openModule(name:String){scrollToModule(name);compose.onNodeWithText(name).performClick()}
 
     @Test fun allNativeModulesOpenAndBackWorks(){
         openModules()
@@ -153,10 +155,15 @@ class NativePilotUiTest {
         openModules()
         assertTrue(compose.activity.window.attributes.flags and WindowManager.LayoutParams.FLAG_SECURE != 0)
         compose.activity.requestedOrientation=ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
-        waitText("Your workspace")
-        compose.onNodeWithText("Masters").performScrollTo().assertIsDisplayed()
+        compose.waitUntil(15000){compose.activity.resources.configuration.orientation==Configuration.ORIENTATION_LANDSCAPE}
+        waitText("Your workspace");compose.waitForIdle();scrollToModule("Masters")
+        compose.waitUntil(15000){runCatching{compose.onNodeWithText("Masters").assertIsDisplayed()}.isSuccess}
+        openModule("Masters");waitText("Create Party")
+        compose.onNodeWithText("Create Party").assertIsDisplayed()
         compose.activity.requestedOrientation=ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-        waitText("Your workspace")
+        compose.waitUntil(15000){compose.activity.resources.configuration.orientation==Configuration.ORIENTATION_PORTRAIT}
+        waitText("Create Party");compose.waitForIdle()
+        compose.onNodeWithText("Create Party").assertIsDisplayed()
     }
 
     @Test fun restrictedRoleDoesNotSeeAdministrationOrMasters(){
