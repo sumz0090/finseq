@@ -6,7 +6,6 @@ import android.content.*;
 import android.graphics.Color;
 import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
-import android.provider.Settings;
 import android.view.*;
 import android.view.inputmethod.EditorInfo;
 import android.webkit.*;
@@ -17,9 +16,12 @@ public class MainActivity extends Activity {
     private static final String PREFS = "tryit_prefs";
     private static final String KEY_URL = "saved_url";
     private static final int FILE_CHOOSER = 7001;
+    private static final long DOUBLE_BACK_EXIT_MS = 1800L;
     private WebView webView;
     private ValueCallback<Uri[]> fileCallback;
     private String homeUrl = "";
+    private long lastDashboardBack = 0L;
+    private boolean backCheckRunning = false;
 
     private int dp(int v){ return Math.round(v * getResources().getDisplayMetrics().density); }
 
@@ -99,6 +101,7 @@ public class MainActivity extends Activity {
 
     private void openWeb(String url){
         homeUrl=url;
+        lastDashboardBack=0L;
         LinearLayout outer=new LinearLayout(this); outer.setOrientation(LinearLayout.VERTICAL); outer.setBackgroundColor(Color.WHITE);
         LinearLayout bar=new LinearLayout(this); bar.setGravity(Gravity.CENTER_VERTICAL); bar.setPadding(dp(12),0,dp(6),0); bar.setBackgroundColor(Color.WHITE);
         ImageView icon=new ImageView(this); icon.setImageResource(R.drawable.ic_tryit); bar.addView(icon,new LinearLayout.LayoutParams(dp(34),dp(34)));
@@ -152,9 +155,46 @@ public class MainActivity extends Activity {
         p.setOnMenuItemClickListener(i->{ String t=i.getTitle().toString(); if(t.equals("Reload")&&webView!=null) webView.reload(); else if(t.equals("Home")&&webView!=null) webView.loadUrl(homeUrl); else if(t.equals("Change URL")){ getSharedPreferences(PREFS,MODE_PRIVATE).edit().remove(KEY_URL).apply(); showUrlSetup(); } return true; }); p.show();
     }
 
+    private void goToDashboard(){
+        if(webView==null) return;
+        String js="(function(){try{var els=[].slice.call(document.querySelectorAll('a,button,[role=button],[onclick]'));var ok=function(e){if(!e)return false;var r=e.getBoundingClientRect(),s=getComputedStyle(e);return r.width>0&&r.height>0&&s.display!=='none'&&s.visibility!=='hidden';};var d=els.find(function(e){var t=(e.innerText||e.textContent||e.getAttribute('aria-label')||'').trim().toLowerCase();return ok(e)&&(t==='dashboard'||t.indexOf('operations dashboard')>=0);});if(d){d.click();return 'clicked';}if(typeof showPage==='function'){try{showPage('dashboard');return 'showPage';}catch(x){}}return 'none';}catch(e){return 'none';}})();";
+        webView.evaluateJavascript(js,value->{
+            if(value==null || value.contains("none")) webView.loadUrl(homeUrl);
+        });
+    }
+
+    private void requestSmartBack(){
+        if(webView==null){ super.onBackPressed(); return; }
+        if(backCheckRunning) return;
+        backCheckRunning=true;
+        String js="(function(){try{var vis=function(e){if(!e)return false;var r=e.getBoundingClientRect(),s=getComputedStyle(e);return r.width>0&&r.height>0&&s.display!=='none'&&s.visibility!=='hidden'&&s.opacity!=='0';};var pm=document.querySelector('#p1013-profile-menu.open,.p1013-profile-menu.open');if(pm){pm.classList.remove('open');return 'handled';}var modals=[].slice.call(document.querySelectorAll('[role=dialog],.modal,.dialog,.popup,.overlay,.drawer')).filter(vis);if(modals.length){var m=modals[modals.length-1];var b=m.querySelector('[data-dismiss],.close,.btn-close,[aria-label=Close],[aria-label=\"Close\"],button[title=Close],button[title=\"Close\"],button');if(b&&vis(b)){b.click();return 'handled';}}var body=(document.body?document.body.innerText:'').toLowerCase();var h=[].slice.call(document.querySelectorAll('h1,h2,.page-title,.dashboard-title')).filter(vis).map(function(e){return (e.innerText||'').toLowerCase();}).join(' ');var path=(location.pathname||'').toLowerCase();var dash=path.indexOf('dashboard')>=0||h.indexOf('operations dashboard')>=0||h.trim()==='dashboard'||body.indexOf('live operations')>=0&&body.indexOf('operations dashboard')>=0;return dash?'dashboard':'content';}catch(e){return 'content';}})();";
+        webView.evaluateJavascript(js,value->{
+            backCheckRunning=false;
+            String state=value==null?"content":value.replace("\"","").trim();
+            if("handled".equals(state)){ lastDashboardBack=0L; return; }
+            if(webView.canGoBack()){
+                lastDashboardBack=0L;
+                webView.goBack();
+                return;
+            }
+            if("dashboard".equals(state)){
+                long now=System.currentTimeMillis();
+                if(now-lastDashboardBack<=DOUBLE_BACK_EXIT_MS){
+                    finishAffinity();
+                }else{
+                    lastDashboardBack=now;
+                    Toast.makeText(MainActivity.this,"Press back again to exit",Toast.LENGTH_SHORT).show();
+                }
+                return;
+            }
+            lastDashboardBack=0L;
+            goToDashboard();
+        });
+    }
+
     @Override protected void onActivityResult(int r,int c,Intent data){
         super.onActivityResult(r,c,data); if(r==FILE_CHOOSER && fileCallback!=null){ Uri[] result=null; if(c==RESULT_OK){ if(data!=null && data.getData()!=null) result=new Uri[]{data.getData()}; else if(data!=null && data.getClipData()!=null){ int n=data.getClipData().getItemCount(); result=new Uri[n]; for(int i=0;i<n;i++) result[i]=data.getClipData().getItemAt(i).getUri(); } } fileCallback.onReceiveValue(result); fileCallback=null; }
     }
 
-    @Override public void onBackPressed(){ if(webView!=null && webView.canGoBack()) webView.goBack(); else super.onBackPressed(); }
+    @Override public void onBackPressed(){ requestSmartBack(); }
 }
