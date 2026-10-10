@@ -265,6 +265,12 @@ def mutate(g, sess, body):
             field = ORDER_FIELDS.get(category)
             if field and any(o.get(field) == old['name'] for key in ('st_orders', 'sf_orders') for o in read(g, key, [])):
                 raise ApiError('Master is used by orders and cannot be deleted.')
+            for mapping_key in ('st_facArtSole', 'st_facArtDml', 'st_facArtMaterial'):
+                mapping = read(g, mapping_key, {})
+                used_key = category in ('factory', 'art') and any(len(parts := key.split('||')) == 2 and parts[0 if category == 'factory' else 1].casefold() == old['name'].casefold() for key in mapping)
+                used_value = mapping_key == {'sole': 'st_facArtSole', 'dml': 'st_facArtDml', 'material': 'st_facArtMaterial'}.get(category) and any(str(value).casefold() == old['name'].casefold() for value in mapping.values())
+                if used_key or used_value:
+                    raise ApiError('Master is used by a factory/article mapping and cannot be deleted.')
             if category in ('sole', 'soleVendor') and any(r.get('sole' if category == 'sole' else 'party') == old['name'] for key in ('st_po_log', 'st_purchase_log') for r in read(g, key, [])):
                 raise ApiError('Master has transaction history and cannot be deleted.')
             if category == 'sole':

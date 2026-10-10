@@ -73,6 +73,16 @@ class WorkspaceTests(unittest.TestCase):
             old = self.masters[category][0]
             with self.assertRaises(api.ApiError): api.mutate(self.g, self.admin, self.body('master_delete', category=category, old_name=old['name'], expected_token=api.token(old)))
 
+    def test_mapping_only_master_delete_refused_without_changes(self):
+        self.put('st_orders', [])
+        self.put('st_soles', {'SOLE': {'opening': {}, 'purchase': {}}})
+        for category in ('factory', 'art', 'sole'):
+            before = copy.deepcopy(self.state)
+            with self.assertRaises(api.ApiError):
+                old = self.masters[category][0]
+                api.mutate(self.g, self.admin, self.body('master_delete', category=category, old_name=old['name'], expected_token=api.token(old)))
+            self.assertEqual(before, self.state)
+
     def test_unused_master_delete_only_selected(self):
         api.mutate(self.g, self.admin, self.body('master_create', category='colour', fields={'name': 'UNUSED'}))
         m = self.get('st_masters')['colour'][1]

@@ -16,7 +16,7 @@
   ],
   "files": {
     "server.py": "0ea31123740bb6747843f2cd6500b81b69d59186ed06dc290b7f6a950c2e2e28",
-    "mobile_workspace_api.py": "fc28283395ab41f1da49e3dde9017cd5822ccca9dbe2ba07c2861c6bd504d8ea",
+    "mobile_workspace_api.py": "3ff2a4a52934923c0d14ac2f1224d666feefbcb321c2e4057385fdba1a646817",
     "mobile_orders_api.py": "476c2b811e3de7aa6eebe364d07e024ce6d79842363978902bd8831676d0bff8"
   }
 }
