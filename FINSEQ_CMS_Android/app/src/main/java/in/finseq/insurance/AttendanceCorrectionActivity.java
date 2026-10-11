@@ -1,0 +1,7 @@
+package in.finseq.insurance;
+import android.os.*;import android.widget.*;import org.json.*;
+public class AttendanceCorrectionActivity extends FinseqActivity{
+ EditText date,in,out,reason;Button submit;
+ public void onCreate(Bundle b){super.onCreate(b);LinearLayout root=Ui.column(this);Ui.appHeader(root,this,"Correction Request");LinearLayout body=Ui.contentColumn(this);root.addView(body);date=Ui.input(this,"Work date YYYY-MM-DD");in=Ui.input(this,"Requested Check-In HH:MM");out=Ui.input(this,"Requested Check-Out HH:MM");reason=Ui.input(this,"Reason (mandatory)");submit=Ui.greenButton(this,"Submit Correction");submit.setOnClickListener(v->send());body.addView(Ui.sub(this,"Any correction requires Admin approval and remains in the audit trail."));body.addView(date);body.addView(in);body.addView(out);body.addView(reason);body.addView(submit);Ui.setScreen(this,root,5);}
+ void send(){submit.setEnabled(false);Ui.run(this,()->{try{JSONObject b=new JSONObject().put("work_date",date.getText().toString().trim()).put("requested_check_in",in.getText().toString().trim()).put("requested_check_out",out.getText().toString().trim()).put("reason",reason.getText().toString().trim());JSONObject r=ApiClient.post(this,"/api/attendance/correction",b);Ui.ui(this,()->{Ui.toast(this,r.optString("message","Correction request submitted"));finish();});}catch(Exception e){Ui.ui(this,()->{submit.setEnabled(true);Ui.toast(this,e.getMessage());});}});}
+}
