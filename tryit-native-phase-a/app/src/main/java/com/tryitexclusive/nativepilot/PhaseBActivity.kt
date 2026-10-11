@@ -22,6 +22,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color as ComposeColor
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
@@ -70,8 +71,8 @@ private val BAmber = ComposeColor(0xFFF59E0B)
         Scaffold(topBar={
             Surface(color=BNavy,shadowElevation=4.dp){Row(Modifier.fillMaxWidth().statusBarsPadding().height(66.dp).padding(horizontal=14.dp),verticalAlignment=Alignment.CenterVertically){
                 Column{Text("TRYIT",color=ComposeColor.White,fontSize=22.sp,fontWeight=FontWeight.Black);Text("EXCLUSIVE  /  OMS",color=ComposeColor(0xFFCBD5E1),fontSize=10.sp)}
-                Spacer(Modifier.weight(1f)); Column(Modifier.clickable(onClick=onProfile),horizontalAlignment=Alignment.End){Text(profile.fullName.ifBlank{profile.username.ifBlank{"User"}},color=ComposeColor.White,fontWeight=FontWeight.Bold,fontSize=12.sp);Text(profile.designation.ifBlank{profile.role.ifBlank{"Account"}},color=ComposeColor(0xFFCBD5E1),fontSize=10.sp)}
-                IconButton(onLock){Icon(Icons.Default.Lock,"Lock",tint=ComposeColor.White)};IconButton(onSettings){Icon(Icons.Default.Settings,null,tint=ComposeColor.White)}
+                Spacer(Modifier.weight(1f)); Column(Modifier.widthIn(max=120.dp).clickable(onClick=onProfile),horizontalAlignment=Alignment.End){Text(profile.fullName.ifBlank{profile.username.ifBlank{"User"}},color=ComposeColor.White,fontWeight=FontWeight.Bold,fontSize=12.sp,maxLines=1,overflow=TextOverflow.Ellipsis);Text(profile.designation.ifBlank{profile.role.ifBlank{"Account"}},color=ComposeColor(0xFFCBD5E1),fontSize=10.sp,maxLines=1,overflow=TextOverflow.Ellipsis)}
+                IconButton(onLock){Icon(Icons.Default.Lock,"Lock",tint=ComposeColor.White)};IconButton(onSettings){Icon(Icons.Default.Settings,"Settings",tint=ComposeColor.White)}
             }}
         }) { pad ->
             Column(Modifier.padding(pad).fillMaxSize().background(BSoft).verticalScroll(rememberScrollState()).padding(18.dp)) {

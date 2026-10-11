@@ -42,6 +42,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.fragment.app.FragmentActivity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -93,7 +94,7 @@ class MainActivity : FragmentActivity() {
 
         setContent {
             MaterialTheme(
-                shapes = Shapes(small = RoundedCornerShape(12.dp), medium = RoundedCornerShape(18.dp), large = RoundedCornerShape(24.dp)),
+                shapes = Shapes(extraSmall = RoundedCornerShape(12.dp), small = RoundedCornerShape(12.dp), medium = RoundedCornerShape(18.dp), large = RoundedCornerShape(24.dp)),
                 colorScheme = lightColorScheme(
                     primary = Navy,
                     secondary = Red,
@@ -208,6 +209,17 @@ class MainActivity : FragmentActivity() {
             }
             if (mode == "system") launchSystemUnlock({ enable() }) { Toast.makeText(this@MainActivity,it,Toast.LENGTH_LONG).show() }
             else enable()
+        }
+
+        SideEffect {
+            runOnUiThread {
+                val light = route in listOf("login","locksetup","orders","workspace")
+                val bars = WindowInsetsControllerCompat(window, window.decorView)
+                bars.isAppearanceLightStatusBars = light
+                bars.isAppearanceLightNavigationBars = route != "unlock"
+                window.statusBarColor = if(light) Color.rgb(244,247,251) else Color.rgb(11,24,48)
+                window.navigationBarColor = if(route=="unlock") Color.rgb(11,24,48) else Color.WHITE
+            }
         }
 
         LaunchedEffect(Unit) {
@@ -453,23 +465,27 @@ class MainActivity : FragmentActivity() {
                 Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().imePadding().verticalScroll(rememberScrollState()).padding(24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Spacer(Modifier.height(38.dp))
-                Surface(shape=RoundedCornerShape(24.dp),color=Navy,modifier=Modifier.size(78.dp)) { Box(contentAlignment=Alignment.Center){Text("T",fontSize=48.sp,fontWeight=FontWeight.Black,color=ComposeColor.White)} }
-                Spacer(Modifier.height(16.dp))
-                Text("TRYIT",fontSize=36.sp,fontWeight=FontWeight.Black,color=Navy,letterSpacing=4.sp)
-                Text("E X C L U S I V E",fontSize=11.sp,fontWeight=FontWeight.SemiBold,color=Red)
-                Spacer(Modifier.height(30.dp))
+                Spacer(Modifier.height(24.dp))
+                Row(verticalAlignment=Alignment.CenterVertically) {
+                    Surface(shape=RoundedCornerShape(20.dp),color=Navy,modifier=Modifier.size(64.dp)) { Box(contentAlignment=Alignment.Center){Text("T",fontSize=40.sp,fontWeight=FontWeight.Black,color=ComposeColor.White)} }
+                    Spacer(Modifier.width(16.dp))
+                    Column {
+                        Text("TRYIT",fontSize=30.sp,fontWeight=FontWeight.Black,color=Navy,letterSpacing=3.sp)
+                        Text("E X C L U S I V E",fontSize=10.sp,fontWeight=FontWeight.SemiBold,color=Red)
+                    }
+                }
+                Spacer(Modifier.height(28.dp))
                 Surface(shape = RoundedCornerShape(24.dp), color = ComposeColor.White, shadowElevation = 2.dp) {
                     Column(Modifier.padding(22.dp).widthIn(max = 480.dp)) {
                         Row(verticalAlignment=Alignment.CenterVertically){Icon(Icons.Default.VerifiedUser,null,tint=Red,modifier=Modifier.size(18.dp));Spacer(Modifier.width(8.dp));Text("YOUR BUSINESS, CONNECTED",fontSize=10.sp,fontWeight=FontWeight.Bold,color=Navy)}
                         Spacer(Modifier.height(20.dp))
                         Text("Welcome back", fontSize = 26.sp, fontWeight = FontWeight.Bold, color = Navy)
-                        Text("Sign in to manage your day with TRYIT OMS.", color = ComposeColor(0xFF64748B))
+                        Text("Sign in to your TRYIT OMS account.", color = ComposeColor(0xFF64748B))
                         Spacer(Modifier.height(18.dp))
                         OutlinedTextField(username, { username = it }, label = { Text("Username") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
                         Spacer(Modifier.height(10.dp))
                         OutlinedTextField(
-                            password, { password = it }, label = { Text("Password") }, modifier = Modifier.fillMaxWidth(), singleLine = true,
+                            password, { password = it }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password), label = { Text("Password") }, modifier = Modifier.fillMaxWidth(), singleLine = true,
                             visualTransformation = if (showPassword) VisualTransformation.None else PasswordVisualTransformation(),
                             trailingIcon = { IconButton({ showPassword = !showPassword }) { Icon(if (showPassword) Icons.Default.VisibilityOff else Icons.Default.Visibility, null) } }
                         )
@@ -515,7 +531,7 @@ class MainActivity : FragmentActivity() {
                     Spacer(Modifier.height(10.dp))
                     OutlinedTextField(otp, { otp = it }, label = { Text("OTP") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth())
                     Spacer(Modifier.height(10.dp))
-                    OutlinedTextField(newPass, { newPass = it }, label = { Text("New password") }, visualTransformation = PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(newPass, { newPass = it }, label = { Text("New password") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password), visualTransformation = PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth())
                 }
                 if (message.isNotBlank()) Text(message, color = Green, modifier = Modifier.padding(top = 10.dp))
                 if (error.isNotBlank()) Text(error, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 10.dp))

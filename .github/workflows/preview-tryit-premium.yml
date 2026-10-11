@@ -31,7 +31,7 @@ jobs:
           while pending and time.monotonic()<deadline:
               for name in list(pending):
                   result=subprocess.run(['adb','exec-out','run-as','com.tryitexclusive.nativepilot','cat','files/premium_'+name+'.png'],capture_output=True)
-                  if result.returncode==0 and result.stdout.startswith(b'\x89PNG\r\n\x1a\n'):
+                  if result.returncode==0 and result.stdout.startswith(bytes((137,80,78,71,13,10,26,10))) and result.stdout.endswith(bytes((0,0,0,0,73,69,78,68,174,66,96,130))):
                       temporary=directory/(name+'.tmp')
                       temporary.write_bytes(result.stdout)
                       os.replace(temporary,directory/(name+'.png'))
