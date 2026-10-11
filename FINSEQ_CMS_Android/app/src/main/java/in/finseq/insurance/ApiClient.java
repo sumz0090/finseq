@@ -1,7 +1,7 @@
 package in.finseq.insurance;
 import android.content.*;import org.json.*;import java.io.*;import java.net.*;import java.nio.charset.StandardCharsets;
 public final class ApiClient {
- public static String BASE="https://insurance.finseq.in";
+ public static String BASE="https://cms.finseq.in";
  static JSONObject request(Context c,String method,String path,JSONObject body)throws Exception{
   URL url=new URL(BASE+path);HttpURLConnection h=(HttpURLConnection)url.openConnection();h.setRequestMethod(method);h.setConnectTimeout(15000);h.setReadTimeout(path.endsWith("/activity/sync")||path.endsWith("/mandates/sync")||path.endsWith("/sip/sync")?600000:45000);h.setRequestProperty("Accept","application/json");String t=Session.token(c);if(!t.isEmpty())h.setRequestProperty("Authorization","Bearer "+t);
   if(body!=null){h.setDoOutput(true);h.setRequestProperty("Content-Type","application/json; charset=utf-8");try(OutputStream os=h.getOutputStream()){os.write(body.toString().getBytes(StandardCharsets.UTF_8));}}
