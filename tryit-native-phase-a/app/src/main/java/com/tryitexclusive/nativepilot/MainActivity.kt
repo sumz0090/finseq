@@ -32,6 +32,8 @@ import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.graphics.Color as ComposeColor
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -193,7 +195,7 @@ class MainActivity : FragmentActivity() {
                     secure.put("session_needs_refresh", ""); route = resumeRoute
                 } else if (r.code in listOf(401,403)) {
                     deviceVault.clear(); clearSession(); savedScreens.removeState("orders"); savedScreens.removeState("workspace"); route = "login"
-                    Toast.makeText(this@MainActivity, "Please sign in again. Device login expired or access changed.", Toast.LENGTH_LONG).show()
+                    runOnUiThread { Toast.makeText(this@MainActivity, "Please sign in again. Device login expired or access changed.", Toast.LENGTH_LONG).show() }
                 } else unlockError = r.error
             }
         }
@@ -332,13 +334,13 @@ class MainActivity : FragmentActivity() {
                 val tabs = listOf("Dashboard" to Icons.Default.SpaceDashboard, "Orders" to Icons.Default.ReceiptLong, "Operations" to Icons.Default.LocalShipping, "Masters" to Icons.Default.FolderCopy, "More" to Icons.Default.GridView)
                 tabs.forEachIndexed { i, (label, icon) ->
                     val selected = when(i) { 0 -> route=="home"; 1 -> route=="orders"; 2 -> route=="workspace" && workspaceInitial=="production"; 3 -> route=="workspace" && workspaceInitial=="masters"; else -> route=="workspace" && workspaceInitial=="hub" }
-                    NavigationBarItem(selected = selected, onClick = {
+                    NavigationBarItem(modifier = Modifier.semantics { contentDescription = label + " tab" }, selected = selected, onClick = {
                         when(i) {
                             0 -> route="home"
                             1 -> { ordersInitialId=""; ordersOrigin="home"; route="orders" }
                             else -> { val next=when(i){2->"production";3->"masters";else->"hub"}; if(workspaceInitial!=next) savedScreens.removeState("workspace"); workspaceInitial=next; route="workspace" }
                         }
-                    }, icon = { Icon(icon, label + " tab") }, label = { Text(label,fontSize=10.sp,maxLines=1,modifier=Modifier.clearAndSetSemantics {}) }, colors = NavigationBarItemDefaults.colors(selectedIconColor=Red,selectedTextColor=Navy,indicatorColor=ComposeColor(0xFFFDECEE)))
+                    }, icon = { Icon(icon, null) }, label = { Text(label,fontSize=10.sp,maxLines=1,modifier=Modifier.clearAndSetSemantics {}) }, colors = NavigationBarItemDefaults.colors(selectedIconColor=Red,selectedTextColor=Navy,indicatorColor=ComposeColor(0xFFFDECEE)))
                 }
             }
         }
