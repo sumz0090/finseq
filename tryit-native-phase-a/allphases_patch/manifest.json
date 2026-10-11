@@ -25,7 +25,7 @@
   "files": {
     "mobile_workspace_api.py": "ae6942a9e25a8cdb7b9884663e2cb79d69d7717164d44ba0a1eac3959b117359",
     "mobile_orders_api.py": "476c2b811e3de7aa6eebe364d07e024ce6d79842363978902bd8831676d0bff8",
-    "mobile_auth_api.py": "0b90360db5ceae5c057d3c952275ff814c0ac6f70285faabff6284c024a2e739",
-    "server.py": "c6f3fe61b9d8d5c925c848fc07576c11d41d1cfc8ef57f9defb49f755ddab689"
+    "mobile_auth_api.py": "7ce87289db488876476e8ecdc713fe981d4021314255cfc93ec878c2c946dd31",
+    "server.py": "a90186118d772f2ec6160aff4f41e94a39ec8dc2afb8bba5c0211a67bccccef6"
   }
 }

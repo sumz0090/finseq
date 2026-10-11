@@ -45,6 +45,15 @@ def revoke(g, username=None, device_id=None, keep=None):
         _save(g, data)
 
 
+def revoke_session(g, session_id):
+    if not session_id: return
+    with g['AUTH_LOCK']:
+        data = _load(g)
+        for key, row in list(data.items()):
+            if row.get('session_id') == session_id: data.pop(key)
+        _save(g, data)
+
+
 def _fingerprint(g, user, row):
     # Also catches legacy admin password changes that do not bump session_version.
     password = row.get('password_hash', '')
@@ -96,7 +105,7 @@ def handle_mobile_auth(h, g, method, path):
                 # Replace this device's session to avoid unlimited session creation.
                 for tok, sess in list(g['OMS_SESSIONS'].items()):
                     if sess.get('user') == user and sess.get('device_id') == device: g['OMS_SESSIONS'].pop(tok)
-                g['OMS_SESSIONS'][token] = {'session_id': secrets.token_hex(8), 'user': user, 'role': row['role'], 'expires': now + hours * 3600, 'login_at': g['now_iso'](), 'last_seen': now, 'ip': g['_request_ip'](h), 'device_id': device, 'device_name': rec['device_name'], 'session_version': rec['session_version']}
+                g['OMS_SESSIONS'][token] = {'session_id': rec['session_id'], 'user': user, 'role': row['role'], 'expires': now + hours * 3600, 'login_at': g['now_iso'](), 'last_seen': now, 'ip': g['_request_ip'](h), 'device_id': device, 'device_name': rec['device_name'], 'session_version': rec['session_version']}
                 cookie = f'kiran_oms_user={token}; Path=/; HttpOnly; SameSite=Strict; Max-Age={hours * 3600}'
                 if h._secure_cookie(): cookie += '; Secure'
                 g['append_config_audit']('native_device_session_renewed', {'device_id': device}, actor=user)
@@ -111,7 +120,7 @@ def handle_mobile_auth(h, g, method, path):
             for key, rec in list(data.items()):
                 if rec['user'] == user and (rec['device_id'] == device or row.get('single_device')): data.pop(key)
             secret = secrets.token_urlsafe(48)
-            data[hashlib.sha256(secret.encode()).hexdigest()] = {'user': user, 'device_id': device, 'device_name': sess.get('device_name', 'Android device'), 'role': row['role'], 'session_version': int(row.get('session_version', 0) or 0), 'password_fingerprint': _fingerprint(g, user, row), 'expires': time.time() + TTL}
+            data[hashlib.sha256(secret.encode()).hexdigest()] = {'user': user, 'device_id': device, 'device_name': sess.get('device_name', 'Android device'), 'session_id': sess.get('session_id') or secrets.token_hex(8), 'role': row['role'], 'session_version': int(row.get('session_version', 0) or 0), 'password_fingerprint': _fingerprint(g, user, row), 'expires': time.time() + TTL}
             _save(g, data)
             g['append_config_audit']('native_device_remembered', {'device_id': device}, actor=user)
             h.send_json({'ok': True, 'token': secret, 'expires_in': TTL})

@@ -7,7 +7,7 @@ from email.message import EmailMessage
 from urllib.parse import urlparse, parse_qs
 from mobile_orders_api import handle as handle_mobile_orders
 from mobile_workspace_api import handle as handle_mobile_workspace
-from mobile_auth_api import handle_mobile_auth, revoke as revoke_remembered_devices
+from mobile_auth_api import handle_mobile_auth, revoke as revoke_remembered_devices, revoke_session as revoke_remembered_session
 
 ROOT=Path(__file__).resolve().parent
 DISCOVERY_PORT=8789
@@ -1419,6 +1419,7 @@ class Handler(SimpleHTTPRequestHandler):
             removed=0; clear_current=False
             if action=='logout_session':
                 sid=str(body.get('session_id') or '')
+                revoke_remembered_session(globals(), sid)
                 with AUTH_LOCK:
                     for tok,sess in list(OMS_SESSIONS.items()):
                         if str(sess.get('session_id') or '')==sid:

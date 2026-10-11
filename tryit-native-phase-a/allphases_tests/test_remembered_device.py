@@ -77,6 +77,23 @@ class RememberedDeviceTests(OrdersHttpTests):
         self.assertEqual(self.post('/api/admin/sessions/manage', {'action': 'logout_all'}, 'admin')[0], 200)
         self.assertEqual(self.post('/api/mobile/auth/refresh', secret)[0], 401)
 
+    def test_admin_session_logout_after_renewal_uses_stable_device_session(self):
+        secret = self.enroll()
+        code, body, cookie = self.post('/api/mobile/auth/refresh', secret)
+        self.assertEqual(code, 200, body)
+        renewed = self.server.OMS_SESSIONS[cookie.split(';')[0].split('=',1)[1]]
+        self.assertEqual(renewed['session_id'], 'viewer-sid')
+        self.assertEqual(self.post('/api/admin/sessions/manage', {'action': 'logout_session', 'session_id': 'viewer-sid'}, 'admin')[0], 200)
+        self.assertEqual(self.post('/api/mobile/auth/refresh', secret)[0], 401)
+
+    def test_admin_session_logout_revokes_even_after_normal_expiry_cleanup(self):
+        secret = self.enroll()
+        self.server.OMS_SESSIONS['viewer-token']['expires'] = 0
+        self.server._cleanup_oms_sessions()
+        self.assertNotIn('viewer-token', self.server.OMS_SESSIONS)
+        self.assertEqual(self.post('/api/admin/sessions/manage', {'action': 'logout_session', 'session_id': 'viewer-sid'}, 'admin')[0], 200)
+        self.assertEqual(self.post('/api/mobile/auth/refresh', secret)[0], 401)
+
     def test_disable_then_enable_does_not_restore_device_trust(self):
         secret = self.enroll()
         for action in ('deactivate', 'activate'):
