@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""TRYIT All Phases API patch. Only the three manifest files may be replaced."""
+"""TRYIT All Phases API patch. Only the four manifest files may be replaced."""
 import argparse
 import ctypes
 import hashlib
@@ -45,7 +45,7 @@ def validate(root, package=PACKAGE):
         return manifest, True
     base = next((b for b in manifest['compatible_bases'] if b['server_sha256'] == current), None)
     if base is None:
-        raise ValueError('Incompatible server version. No files changed. Supported: Phase 10.37/10.38 or Native Phase C.')
+        raise ValueError('Incompatible server version. No files changed. Supported: Phase 10.37/10.38, Native Phase C or All Phases v1.0.0.')
     for name in FILES[1:]:
         expected = base['existing_addons'].get(name)
         target = root / name
@@ -290,6 +290,13 @@ def probe(port, expect_patch):
         except urllib.error.HTTPError as e:
             if e.code != 401 or json.loads(e.read()).get('ok') is not False:
                 raise ValueError('Native workspace API was not loaded.') from e
+        req = urllib.request.Request(base + '/api/mobile/auth/refresh', data=b'{"device_id":"probe","token":"invalid"}', headers={'Content-Type':'application/json'})
+        try:
+            opener.open(req, timeout=2)
+            raise ValueError('Remembered-device endpoint allowed invalid credentials.')
+        except urllib.error.HTTPError as e:
+            if e.code != 401 or json.loads(e.read()).get('ok') is not False:
+                raise ValueError('Remembered-device API was not loaded.') from e
 
 
 def wait_health(process, port, patch):
@@ -361,7 +368,7 @@ def main():
             print('Original server restored and restarted.')
         raise
     print('SUCCESS: ' + ('Original server restored.' if args.rollback else 'Native D-H APIs installed; server restarted.'))
-    print('Refresh existing web clients. Install All Phases APK over the existing Phase C app on Android.')
+    print('Refresh existing web clients. Install Premium APK over the existing TRYIT app on Android.')
 
 
 if __name__ == '__main__':

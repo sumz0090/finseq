@@ -118,6 +118,27 @@ class NativePilotUiTest {
         assertEquals("kiran_oms_user=renewed",SecureStore(ctx).get("session_cookie"))
         assertEquals("pbkdf2",SecureStore(ctx).get("pin_kdf"));assertEquals(0,fixture.writes.size)
     }
+    @Test fun refreshNetworkFailureKeepsVaultAndAppLocked() {
+        waitText("All Modules");pinLock();fixture.close()
+        compose.activityRule.scenario.moveToState(Lifecycle.State.CREATED)
+        compose.activityRule.scenario.moveToState(Lifecycle.State.RESUMED)
+        waitText("App PIN")
+        compose.onNodeWithText("App PIN").performTextInput("1234");compose.onNodeWithText("Unlock",substring=false).performClick()
+        compose.waitUntil(20000){compose.onAllNodesWithText("Reconnecting securely…").fetchSemanticsNodes().isEmpty()}
+        compose.onNodeWithText("TRYIT Locked").assertExists()
+        val ctx=ApplicationProvider.getApplicationContext<Context>()
+        assertTrue(RememberedDevice(ctx,SecureStore(ctx)).exists());assertEquals(0,fixture.writes.size)
+    }
+    @Test fun pinAttemptsRemainBlockedAcrossActivityRecreation() {
+        waitText("All Modules");pinLock()
+        compose.activityRule.scenario.moveToState(Lifecycle.State.CREATED)
+        compose.activityRule.scenario.moveToState(Lifecycle.State.RESUMED);waitText("App PIN")
+        repeat(5) { compose.onNodeWithText("App PIN").performTextReplacement("9999");compose.onNodeWithText("Unlock",substring=false).performClick();compose.waitForIdle() }
+        compose.activityRule.scenario.recreate();waitText("App PIN")
+        compose.onNodeWithText("App PIN").performTextInput("1234");compose.onNodeWithText("Unlock",substring=false).performClick()
+        compose.onNodeWithText("TRYIT Locked").assertExists();assertEquals(0,fixture.authRequests.size)
+        assertTrue(SecureStore(ApplicationProvider.getApplicationContext()).get("pin_blocked_until").toLong()>System.currentTimeMillis())
+    }
     @Test fun revokedDeviceRequiresFreshLogin() {
         pinLock();fixture.expired=true
         compose.onNodeWithText("All Modules").performClick();waitText("App PIN")

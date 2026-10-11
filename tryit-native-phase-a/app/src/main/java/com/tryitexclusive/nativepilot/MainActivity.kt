@@ -598,7 +598,7 @@ class MainActivity : FragmentActivity() {
             if (mode == "pin") {
                 OutlinedTextField(pin, { if (it.length <= 6 && it.all(Char::isDigit)) pin = it }, label = { Text("App PIN") }, visualTransformation = PasswordVisualTransformation(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword), colors = OutlinedTextFieldDefaults.colors(focusedTextColor = ComposeColor.White, unfocusedTextColor = ComposeColor.White, focusedBorderColor = ComposeColor.White, unfocusedBorderColor = ComposeColor(0xFF64748B), focusedLabelColor = ComposeColor.White, unfocusedLabelColor = ComposeColor(0xFFCBD5E1)), modifier = Modifier.fillMaxWidth())
                 Spacer(Modifier.height(12.dp))
-                Button({ if (verifyPin(pin)) onUnlocked() else error = "Incorrect PIN. After 5 attempts, wait 30 seconds." }, enabled = !busy && pin.length >= 4, modifier = Modifier.fillMaxWidth()) { Text("Unlock") }
+                Button({ if (verifyPin(pin)) { error=""; onUnlocked() } else error = "Incorrect PIN. After 5 attempts, wait 30 seconds." }, enabled = !busy && pin.length >= 4, modifier = Modifier.fillMaxWidth()) { Text("Unlock") }
             } else {
                 Button({ onSystemUnlock(onUnlocked) { error = it } }, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.Fingerprint, null); Spacer(Modifier.width(8.dp)); Text("Unlock with Device") }
             }
@@ -606,62 +606,7 @@ class MainActivity : FragmentActivity() {
             if(externalError.isNotBlank()) Text(externalError,color=ComposeColor(0xFFFCA5A5),modifier=Modifier.padding(top=12.dp))
             if (error.isNotBlank()) Text(error, color = ComposeColor(0xFFFCA5A5), modifier = Modifier.padding(top = 12.dp))
             Spacer(Modifier.height(18.dp))
-            TextButton(onClick = onLogout) { Text("Log out", color = ComposeColor.White) }
-        }
-    }
-
-    @Composable
-    private fun HomeScreen(profile: UserProfile, server: String, onProfile: () -> Unit, onSettings: () -> Unit, onLock: () -> Unit, onLogout: () -> Unit) {
-        Scaffold(
-            topBar = {
-                Surface(color = Navy, shadowElevation = 4.dp) {
-                    Row(Modifier.fillMaxWidth().statusBarsPadding().height(64.dp).padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text("TRYIT", color = ComposeColor.White, fontSize = 22.sp, fontWeight = FontWeight.Black)
-                        Spacer(Modifier.weight(1f))
-                        Column(Modifier.clickable(onClick = onProfile), horizontalAlignment = Alignment.End) {
-                            Text(profile.fullName.ifBlank { profile.username.ifBlank { "User" } }, color = ComposeColor.White, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
-                            Text(profile.designation.ifBlank { profile.role.ifBlank { "Account" } }, color = ComposeColor(0xFFCBD5E1), fontSize = 11.sp)
-                        }
-                        IconButton(onClick = onSettings) { Icon(Icons.Default.Settings, null, tint = ComposeColor.White) }
-                    }
-                }
-            }
-        ) { pad ->
-            Column(Modifier.padding(pad).padding(16.dp).verticalScroll(rememberScrollState())) {
-                Surface(shape = RoundedCornerShape(22.dp), color = Navy) {
-                    Column(Modifier.padding(20.dp)) {
-                        Text("Native Foundation Ready", color = ComposeColor.White, fontSize = 24.sp, fontWeight = FontWeight.Black)
-                        Text("All Phases • Login, secure session, app lock, profile and settings", color = ComposeColor(0xFFCBD5E1))
-                    }
-                }
-                Spacer(Modifier.height(16.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    StatusTile("Server", if (server.startsWith("https://")) "HTTPS" else "LAN / HTTP", Icons.Default.Cloud, Modifier.weight(1f))
-                    StatusTile("Role", profile.role.ifBlank { "—" }, Icons.Default.Badge, Modifier.weight(1f))
-                }
-                Spacer(Modifier.height(12.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    StatusTile("App Lock", secure.get("lock_mode").ifBlank { "None" }.replaceFirstChar { it.uppercase() }, Icons.Default.Lock, Modifier.weight(1f))
-                    StatusTile("Native", "Android", Icons.Default.PhoneAndroid, Modifier.weight(1f))
-                }
-                Spacer(Modifier.height(20.dp))
-                Text("All Phases controls", fontWeight = FontWeight.Bold, color = Navy)
-                Spacer(Modifier.height(8.dp))
-                ActionCard(Icons.Default.Person, "My Profile", "View account details loaded from OMS", onProfile)
-                Spacer(Modifier.height(10.dp))
-                ActionCard(Icons.Default.Settings, "Settings", "App lock, timeout and device information", onSettings)
-                Spacer(Modifier.height(10.dp))
-                ActionCard(Icons.Default.Lock, "Lock App Now", "Protect the current session immediately", onLock)
-                Spacer(Modifier.height(10.dp))
-                ActionCard(Icons.Default.Logout, "Log Out", "End current OMS session", onLogout)
-                Spacer(Modifier.height(20.dp))
-                Surface(shape = RoundedCornerShape(18.dp), color = ComposeColor.White) {
-                    Column(Modifier.padding(16.dp)) {
-                        Text("Next native modules", fontWeight = FontWeight.Bold, color = Navy)
-                        Text("Dashboard data, Orders, Masters, Production, Dispatch, Stock, Party Dashboard and Reports will connect to the same OMS backend in the next phases.", color = ComposeColor(0xFF64748B), modifier = Modifier.padding(top = 6.dp))
-                    }
-                }
-            }
+            TextButton(onClick = onLogout, enabled = !busy) { Text("Log out", color = ComposeColor.White) }
         }
     }
 
@@ -743,18 +688,6 @@ class MainActivity : FragmentActivity() {
     }
 
     @Composable
-    private fun StatusTile(label: String, value: String, icon: androidx.compose.ui.graphics.vector.ImageVector, modifier: Modifier = Modifier) {
-        Surface(modifier, shape = RoundedCornerShape(18.dp), color = ComposeColor.White, shadowElevation = 2.dp) {
-            Column(Modifier.padding(15.dp)) {
-                Icon(icon, null, tint = Red)
-                Spacer(Modifier.height(10.dp))
-                Text(value, fontWeight = FontWeight.Bold, color = Navy)
-                Text(label, fontSize = 12.sp, color = ComposeColor(0xFF64748B))
-            }
-        }
-    }
-
-    @Composable
     private fun ProfileRow(label: String, value: String) {
         Surface(shape = RoundedCornerShape(14.dp), color = ComposeColor.White, modifier = Modifier.fillMaxWidth().padding(vertical = 5.dp)) {
             Column(Modifier.padding(14.dp)) { Text(label, fontSize = 12.sp, color = ComposeColor(0xFF64748B)); Text(value, fontWeight = FontWeight.SemiBold, color = Navy) }
@@ -806,8 +739,9 @@ object ApiClient {
     }
 
     fun post(server: String, path: String, body: JSONObject, cookie: String): ApiResult {
+        var conn: HttpURLConnection? = null
         return try {
-            val conn = URL(server.trimEnd('/') + path).openConnection() as HttpURLConnection
+            conn = URL(server.trimEnd('/') + path).openConnection() as HttpURLConnection
             conn.requestMethod = "POST"
             conn.instanceFollowRedirects = false
             conn.connectTimeout = 12000
@@ -823,10 +757,10 @@ object ApiClient {
             val json = runCatching { JSONObject(text) }.getOrElse { JSONObject() }
             val ok = code in 200..299 && json.optBoolean("ok", false)
             val setCookie = conn.getHeaderField("Set-Cookie").orEmpty()
-            ApiResult(ok, if (ok) "" else json.optString("error", "Request failed ($code)"), setCookie, json = json, code = code).also { conn.disconnect() }
+            ApiResult(ok, if (ok) "" else json.optString("error", "Request failed ($code)"), setCookie, json = json, code = code)
         } catch (e: Exception) {
             ApiResult(false, e.message ?: "Unable to connect to server")
-        }
+        } finally { conn?.disconnect() }
     }
 }
 
@@ -850,7 +784,7 @@ class SecureStore(context: Context) {
         val payload = ByteArray(cipher.iv.size + encrypted.size)
         System.arraycopy(cipher.iv, 0, payload, 0, cipher.iv.size)
         System.arraycopy(encrypted, 0, payload, cipher.iv.size, encrypted.size)
-        prefs.edit().putString(key, Base64.encodeToString(payload, Base64.NO_WRAP)).apply()
+        prefs.edit().putString(key, Base64.encodeToString(payload, Base64.NO_WRAP)).commit()
     }
 
     fun get(key: String): String {

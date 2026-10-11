@@ -1,61 +1,36 @@
-TRYIT Native All Phases v1.0.0 — combined D, E, F, G and H update
+# TRYIT OMS Premium v1.1.0
 
-INSTALL ON THE MAIN WINDOWS OMS SERVER PC
-1. Extract this ZIP completely. Double-click UPDATE_TRYIT_ALL_PHASES.bat.
-2. The updater detects the running OMS folder, verifies its exact version,
-   backs up the three program files, installs the APIs, restarts that server
-   with its current command/port, and checks health and protected endpoints.
-   If detection is ambiguous, select the installed folder containing server.py.
-   Keep the restarted server console open. Refresh existing browser clients.
-3. Install TRYIT_Native_All_Phases_v1.0.0.apk over your Phase C Android app.
-   Same app ID and permanent certificate; do not uninstall the existing app.
-4. Unlock/sign in, then open All Modules from the Dashboard.
+Install the server update first, then the signed Premium APK over the existing TRYIT app. Do not uninstall the old app.
 
-SUPPORTED SERVER BASES
-- The exact unchanged Phase 10.37 server.py (10.38 if that file is identical).
-- The exact previously delivered Native Phase C server and Orders API.
-- This exact All Phases update, which is detected as already installed.
-Locally modified or unknown program files are refused without replacement.
-Existing Python 3 and Windows PowerShell are used; no new dependency install.
-If a stopped server normally uses a custom port, start it normally before
-updating so that its command and port can be preserved.
+## Server update (Windows OMS PC)
 
-DATA AND RESTORE
-Only server.py, mobile_orders_api.py and mobile_workspace_api.py are payloads.
-Existing business data, user accounts, configuration, pages and backups are
-preserved. Program-file backups are stored in update_safety_backups/NativeAll_*.
-An installation or restart failure restores the previous program files and
-attempts to restart the previous server automatically.
-Double-click ROLLBACK_TRYIT_ALL_PHASES.bat to restore the latest program backup.
-Rollback preserves business data saved after updating. It returns a Phase C
-installation to Phase C, or removes both new APIs on an original installation.
-Damaged backups and later edited program files are refused by rollback.
+1. Extract this ZIP on the OMS server PC.
+2. Double-click UPDATE_TRYIT_ALL_PHASES.bat.
+3. The updater identifies the running OMS folder and exact supported version, saves a safety backup, stops only that server, installs the four API files, restarts it with the same command, and verifies health and protected endpoints.
+4. If multiple servers are found, choose the intended folder with the updater's --app-folder option. Unknown/custom server versions are refused without overwriting files.
 
-NATIVE MODULES
-D: Nine master categories, searchable lists, profiles, guided create/edit,
-   atomic rename across existing references and unused-record deletion.
-E: Production/dispatch queues and order-stage actions; existing production
-   batch history; sole/box stock, purchase orders, partial receiving, confirmed
-   extra receipts, dated stock corrections and purchase-history metadata.
-F: Party dashboard, order lifecycle ledger, period/status/search filters,
-   grouped reports, drilldown and permission-controlled CSV export through
-   the Android file picker.
-G: User profiles and permissions, activation, WAN/IP/device restrictions,
-   device approval/revocation, session controls and business/access/admin logs.
-   Administrative screens require an administrator account; staff activity
-   is limited to the server-authorized view.
-H: Online-only confirmed saves, conflict/reset checks, idempotent retries,
-   session-expiry sign-out, retained encrypted session/app-lock settings,
-   draft restoration, responsive scrolling and protected screenshots/recents.
+Supported bases: Phase 10.37/10.38, Native Phase C, and Native All Phases v1.0.0. Existing web UI, users, business data, configuration and backups are preserved. No database reset or reimport is needed.
 
-The existing server remains authoritative for data and permissions. Network
-errors do not show a false save success or queue offline writes. Refresh and
-review before retrying a change after a conflict. Native CSV reports contain
-order lines; existing web PDF/printing workflows remain available on the web.
-The party ledger reflects order lifecycle quantities, not accounting vouchers.
+Use ROLLBACK_TRYIT_ALL_PHASES.bat to restore the selected safety backup. The updater does not overwrite later custom edits during rollback.
 
-VERIFICATION
-See VERIFICATION.json for build, test and signing results. Automated Android
-tests use isolated fixtures, not your live server or customer data. Real phone
-biometrics, your specific network, and installation on your live Windows PC
-still require the normal device pilot. The update is not auto-deployed to it.
+## Android update
+
+Install TRYIT_OMS_Premium_v1.1.0.apk over the previous app. It keeps the same application ID and permanent signing certificate. Version code increases to 6.
+
+The release app connects internally to https://oms.tryitexclusive.com using HTTPS. There is no server URL field. On first use, sign in with the existing OMS account, then choose Screen Lock, App PIN, or Skip.
+
+Screen Lock supports strong biometrics/device credentials on Android 11+, and device credentials on Android 8–10. Supported biometric options depend on the phone. App PIN accepts 4–6 digits; five wrong attempts pause further attempts for 30 seconds.
+
+With App Lock enabled, successful unlock renews the OMS session using a separate remembered-device credential valid for up to 90 days from enrollment. Passwords are not saved. Screen Lock protects the credential with an authentication-bound Android Keystore key; App PIN uses the existing encrypted Keystore store and verified PIN gate. PIN verification uses PBKDF2; existing PINs migrate after a correct unlock.
+
+Normal session expiry does not require entering the password again. Admin force logout, device revoke, password/access changes, disable/delete, or credential expiry require fresh login. Server network/device restrictions still apply. Network failure leaves the app locked with an error so you can unlock/retry; it does not silently resubmit business writes. Unsaved business drafts survive background lock.
+
+Skipping/disabling App Lock disables remembered-device renewal. Logging out clears the local credential and asks the server to revoke it. Internet access and the server patch are required for renewal. This release changes a previously saved server address to the fixed OMS host; users previously using another host must sign in on this host once.
+
+## Design
+
+Branded navy/white/red welcome screen, business overview, richer metric cards, consistent rounded forms and navigation: Dashboard, Orders, Operations, Masters, More. More opens the permission-aware module list including Dispatch, Stock & Purchases, Party Dashboard & Ledger, Reports, Administration and Activity & Audit.
+
+## Verification
+
+See VERIFICATION.json for the tested source/build and checks. Automated tests use isolated fixtures only. Physical fingerprint/face enrollment and the live OMS domain still need an on-device acceptance check; no live account data was used for testing.
