@@ -24,7 +24,7 @@ import java.util.UUID;
 public final class DeviceAuth {
     private static final String PREFS="finseq_device_auth";
     private static final String ALIAS="finseq_device_signing_v1";
-    private static final String BASE="https://insurance.finseq.in";
+    private static final String BASE="https://cms.finseq.in";
 
     private static String deviceId(Context c) {
         String id=c.getSharedPreferences(PREFS,0).getString("device_id","");
