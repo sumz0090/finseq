@@ -281,6 +281,7 @@ class MainActivity : FragmentActivity() {
                             profile = result.profile ?: UserProfile(username = user)
                             storeProfile(profile)
                             resumeRoute = "home"
+                            secure.put("lock_mode", "none"); secure.put("lock_setup_done", "0")
                             // Fresh credentials authorise choosing a new lock (also recovers a forgotten App PIN).
                             route = "locksetup"
                         } else setError(result.error)
