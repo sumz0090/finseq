@@ -13,14 +13,16 @@ android {
         minSdk = 26
         targetSdk = 35
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        versionCode = 5
-        versionName = "1.0.0-native"
+        manifestPlaceholders["allowCleartext"] = "true"
+        versionCode = 6
+        versionName = "1.1.0-premium"
     }
 
-    buildFeatures { compose = true }
+    buildFeatures { compose = true; buildConfig = true }
 
     buildTypes {
         release {
+            manifestPlaceholders["allowCleartext"] = "false"
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }

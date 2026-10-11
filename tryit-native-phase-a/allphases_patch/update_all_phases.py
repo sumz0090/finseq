@@ -18,7 +18,7 @@ import urllib.request
 import uuid
 
 PACKAGE = Path(__file__).resolve().parent
-FILES = ('server.py', 'mobile_orders_api.py', 'mobile_workspace_api.py')
+FILES = ('server.py', 'mobile_orders_api.py', 'mobile_workspace_api.py', 'mobile_auth_api.py')
 
 
 def digest(path):

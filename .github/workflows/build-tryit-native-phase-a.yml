@@ -19,6 +19,7 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.10.2'
+          cache-read-only: false
       - name: Install Android SDK 35
         shell: bash
         run: |
@@ -31,9 +32,9 @@ jobs:
         working-directory: tryit-native-phase-a
         run: gradle --no-daemon :app:assembleRelease
       - name: Prepare APK
-        run: cp tryit-native-phase-a/app/build/outputs/apk/release/app-release-unsigned.apk TRYIT_Native_All_Phases_v1.0.0.apk
+        run: cp tryit-native-phase-a/app/build/outputs/apk/release/app-release-unsigned.apk TRYIT_OMS_Premium_v1.1.0.apk
       - uses: actions/upload-artifact@v4
         with:
           name: TRYIT-Native-All-Phases-APK
-          path: TRYIT_Native_All_Phases_v1.0.0.apk
+          path: TRYIT_OMS_Premium_v1.1.0.apk
           if-no-files-found: error

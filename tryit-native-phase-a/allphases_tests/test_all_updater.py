@@ -32,6 +32,18 @@ class UpdaterTests(unittest.TestCase):
             if str(name) not in u.FILES or restored:
                 self.assertEqual((self.root / name).read_bytes(), content)
 
+    def test_upgrade_all_phases_baseline_preserves_live_files(self):
+        shutil.copy2(BASE / 'premium_baseline/server.py', self.root / 'server.py')
+        for name in ('mobile_orders_api.py','mobile_workspace_api.py'):
+            shutil.copy2(BASE / 'premium_baseline' / name, self.root / name)
+        manifest, installed = u.validate(self.root)
+        self.assertFalse(installed)
+        location = u.backup(self.root,manifest); u.apply_files(self.root,manifest,location)
+        self.assertTrue(u.validate(self.root)[1]); self.assert_preserved()
+        u.restore(self.root,location)
+        self.assertFalse((self.root/'mobile_auth_api.py').exists())
+        self.assertFalse(u.validate(self.root)[1])
+
     def test_apply_preserves_state_users_config_web_and_backups(self):
         manifest, installed = u.validate(self.root)
         self.assertFalse(installed)

@@ -41,7 +41,7 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.UUID
 
-object SessionEvents { val expired=MutableSharedFlow<Unit>(extraBufferCapacity=1) }
+object SessionEvents { val expired=MutableSharedFlow<String>(extraBufferCapacity=1) }
 private val WNavy=Color(0xFF0B1830)
 private val WSoft=Color(0xFFF4F7FB)
 private val WDmy=DateTimeFormatter.ofPattern("dd-MM-uuuu").withResolverStyle(java.time.format.ResolverStyle.STRICT)
@@ -57,9 +57,10 @@ object WorkspaceApi {
     fun context(secure:SecureStore,module:String)=OrdersApi.request(secure,"/api/mobile/workspace/context?module=$module")
     fun save(secure:SecureStore,body:JSONObject)=OrdersApi.request(secure,"/api/mobile/workspace/save",body)
     fun export(secure:SecureStore,options:Map<String,String>):Pair<ByteArray?,String> = try {
+        val requestCookie=secure.get("session_cookie")
         val c=URL(normalizeServer(secure.get("server_url"))+"/api/mobile/workspace/export?"+wQuery(options)).openConnection() as HttpURLConnection
-        try{c.connectTimeout=12000;c.readTimeout=20000;c.instanceFollowRedirects=false;c.setRequestProperty("Cookie",secure.get("session_cookie"));val code=c.responseCode
-            if(code==401)SessionEvents.expired.tryEmit(Unit)
+        try{c.connectTimeout=12000;c.readTimeout=20000;c.instanceFollowRedirects=false;c.setRequestProperty("Cookie",requestCookie);val code=c.responseCode
+            if(code==401)SessionEvents.expired.tryEmit(requestCookie)
             if(code==200&&c.contentType.orEmpty().startsWith("text/csv"))c.inputStream.use{it.readBytes()} to "" else null to "Export was not confirmed by server ($code)."
         }finally{c.disconnect()}
     } catch(e:Exception){null to "Unable to export. ${e.message.orEmpty()}"}
@@ -87,7 +88,7 @@ fun NativeWorkspace(secure:SecureStore,onHome:()->Unit,onOrders:(String)->Unit,i
     LaunchedEffect(module){context=null;refresh()}
     BackHandler{if(!saving){if(editor.isNotBlank())editor="" else if(module!="hub")module="hub" else onHome()}}
     Column(Modifier.fillMaxSize().background(WSoft).statusBarsPadding().navigationBarsPadding()) {
-        Surface(color=WNavy){Row(Modifier.fillMaxWidth().heightIn(min=64.dp).padding(horizontal=8.dp),verticalAlignment=Alignment.CenterVertically){IconButton({if(!saving){if(editor.isNotBlank())editor="" else if(module!="hub")module="hub" else onHome()}}){Icon(Icons.Default.ArrowBack,"Back",tint=Color.White)};Column(Modifier.weight(1f)){Text(if(editor.isNotBlank())"${if(editToken.isBlank())"Create" else "Edit"} ${editor.replace('_',' ')}" else mapOf("hub" to "Modules","masters" to "Masters","production" to "Production","dispatch" to "Dispatch","stock" to "Stock & Purchases","business" to "Party Dashboard & Ledger","reports" to "Reports","admin" to "Administration","audit" to "Activity & Audit")[module].orEmpty(),color=Color.White,fontSize=19.sp,fontWeight=FontWeight.Bold);Text("TRYIT • All native phases",color=Color(0xFFCBD5E1),fontSize=11.sp)};if(editor.isBlank())IconButton({if(!saving)refresh()},enabled=!loading){Icon(Icons.Default.Refresh,"Refresh",tint=Color.White)}}}
+        Surface(color=WNavy){Row(Modifier.fillMaxWidth().heightIn(min=64.dp).padding(horizontal=8.dp),verticalAlignment=Alignment.CenterVertically){IconButton({if(!saving){if(editor.isNotBlank())editor="" else if(module!="hub")module="hub" else onHome()}}){Icon(Icons.Default.ArrowBack,"Back",tint=Color.White)};Column(Modifier.weight(1f)){Text(if(editor.isNotBlank())"${if(editToken.isBlank())"Create" else "Edit"} ${editor.replace('_',' ')}" else mapOf("hub" to "Modules","masters" to "Masters","production" to "Production","dispatch" to "Dispatch","stock" to "Stock & Purchases","business" to "Party Dashboard & Ledger","reports" to "Reports","admin" to "Administration","audit" to "Activity & Audit")[module].orEmpty(),color=Color.White,fontSize=19.sp,fontWeight=FontWeight.Bold);Text("TRYIT EXCLUSIVE / OMS",color=Color(0xFFCBD5E1),fontSize=11.sp)};if(editor.isBlank())IconButton({if(!saving)refresh()},enabled=!loading){Icon(Icons.Default.Refresh,"Refresh",tint=Color.White)}}}
         if(loading||saving)LinearProgressIndicator(Modifier.fillMaxWidth())
         if(message.isNotBlank())Row(Modifier.background(Color(0xFFE8F5ED)).padding(10.dp)){Text(message,Modifier.weight(1f));TextButton({message=""}){Text("Dismiss")}}
         if(loadError.isNotBlank())Column(Modifier.padding(18.dp)){Text(loadError,color=MaterialTheme.colorScheme.error);Button({refresh()}){Text("Retry")}}
@@ -111,9 +112,9 @@ fun NativeWorkspace(secure:SecureStore,onHome:()->Unit,onOrders:(String)->Unit,i
 @Composable private fun WorkspaceHub(ctx:JSONObject,onOpen:(String)->Unit,onOrders:()->Unit){
     val modules=listOf("masters" to "Masters","production" to "Production","dispatch" to "Dispatch","stock" to "Stock & Purchases","business" to "Party Dashboard & Ledger","reports" to "Reports","admin" to "Users, Permissions & Devices","audit" to "Activity & Audit")
     LazyColumn(Modifier.fillMaxSize().padding(14.dp),verticalArrangement=Arrangement.spacedBy(12.dp),contentPadding=PaddingValues(bottom=24.dp)){
-        item{WCard{Text("Your workspace",fontSize=25.sp,fontWeight=FontWeight.Bold,color=WNavy);Text("Live data • role-based access • server-confirmed changes")}}
+        item{WCard{Text("Your workspace",fontSize=28.sp,fontWeight=FontWeight.Bold,color=WNavy);Text("Everything you need to keep business moving.")}}
         if(listOf("orders_view","production_view","dispatch_view","accounts_view","reports_view").any{ctx.can(it)})item{Button(onOrders,modifier=Modifier.fillMaxWidth()){Text("Orders")}}
-        modules.forEach{(key,title)->val allowed=when(key){"business"->ctx.can("accounts_view");"admin"->ctx.optBoolean("is_admin");"audit"->ctx.optBoolean("is_admin")||ctx.can("reports_view");else->ctx.can(key+"_view")||if(key in listOf("masters","stock"))ctx.can(key+"_edit")||ctx.can(key+"_add") else false};if(allowed)item{Surface(Modifier.fillMaxWidth().clickable{onOpen(key)},shape=RoundedCornerShape(18.dp),color=Color.White){Row(Modifier.padding(20.dp),verticalAlignment=Alignment.CenterVertically){Icon(when(key){"masters"->Icons.Default.Folder;"stock"->Icons.Default.Inventory2;"admin"->Icons.Default.ManageAccounts;"reports"->Icons.Default.Assessment;else->Icons.Default.Business},null,tint=WNavy);Spacer(Modifier.width(12.dp));Text(title,Modifier.weight(1f),fontWeight=FontWeight.SemiBold);Icon(Icons.Default.ChevronRight,null)}}}}
+        modules.forEach{(key,title)->val allowed=when(key){"business"->ctx.can("accounts_view");"admin"->ctx.optBoolean("is_admin");"audit"->ctx.optBoolean("is_admin")||ctx.can("reports_view");else->ctx.can(key+"_view")||if(key in listOf("masters","stock"))ctx.can(key+"_edit")||ctx.can(key+"_add") else false};if(allowed)item{Surface(Modifier.fillMaxWidth().clickable{onOpen(key)},shape=RoundedCornerShape(18.dp),color=Color.White,shadowElevation=1.dp){Row(Modifier.padding(20.dp),verticalAlignment=Alignment.CenterVertically){Surface(shape=RoundedCornerShape(14.dp),color=Color(0xFFF1F4F9)){Icon(when(key){"masters"->Icons.Default.Folder;"stock"->Icons.Default.Inventory2;"admin"->Icons.Default.ManageAccounts;"reports"->Icons.Default.Assessment;"production"->Icons.Default.PrecisionManufacturing;"dispatch"->Icons.Default.LocalShipping;"audit"->Icons.Default.History;else->Icons.Default.Business},null,tint=WNavy,modifier=Modifier.padding(12.dp).size(24.dp))};Spacer(Modifier.width(14.dp));Text(title,Modifier.weight(1f),fontWeight=FontWeight.SemiBold);Icon(Icons.Default.ChevronRight,null)}}}}
         if(modules.none{(k,_)->ctx.can((if(k=="business")"accounts"else k)+"_view")}&&!ctx.optBoolean("is_admin"))item{Text("Only modules enabled by your administrator are shown.")}
     }
 }

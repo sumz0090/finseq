@@ -1,6 +1,11 @@
 package com.tryitexclusive.nativepilot
 
 import android.content.Context
+import android.app.KeyguardManager
+import androidx.activity.result.contract.ActivityResultContracts
+import javax.crypto.SecretKeyFactory
+import javax.crypto.spec.PBEKeySpec
+import androidx.compose.foundation.BorderStroke
 import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
@@ -26,6 +31,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.graphics.Color as ComposeColor
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -53,7 +59,8 @@ import javax.crypto.spec.GCMParameterSpec
 
 private val Navy = ComposeColor(0xFF0B1830)
 private val Red = ComposeColor(0xFFD71920)
-private val Cream = ComposeColor(0xFFFFF9F1)
+private val Cream = ComposeColor(0xFFF4F7FB)
+const val OMS_URL = "https://oms.tryitexclusive.com"
 private val Soft = ComposeColor(0xFFF4F7FB)
 private val Green = ComposeColor(0xFF0E9F6E)
 
@@ -61,16 +68,30 @@ class MainActivity : FragmentActivity() {
     private lateinit var secure: SecureStore
     private var lockRequested by mutableStateOf(false)
     private var lastBackAt = 0L
+    private lateinit var deviceVault: RememberedDevice
+    private var credentialSuccess: (() -> Unit)? = null
+    private var credentialError: ((String) -> Unit)? = null
+    private val credentialLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode == RESULT_OK) credentialSuccess?.invoke() else credentialError?.invoke("Unlock cancelled. Try again.")
+        credentialSuccess = null; credentialError = null
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.statusBarColor = Color.rgb(11, 24, 48)
         secure = SecureStore(this)
+        deviceVault = RememberedDevice(this, secure)
+        // Only instrumentation/debug builds can point at an isolated test fixture.
+        if (!BuildConfig.DEBUG || secure.get("server_url").isBlank()) {
+            if (secure.get("server_url").isNotBlank() && secure.get("server_url") != OMS_URL) { clearSession(); deviceVault.clear() }
+            secure.put("server_url", OMS_URL)
+        }
         ensureDeviceId()
         window.addFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE)
 
         setContent {
             MaterialTheme(
+                shapes = Shapes(small = RoundedCornerShape(12.dp), medium = RoundedCornerShape(18.dp), large = RoundedCornerShape(24.dp)),
                 colorScheme = lightColorScheme(
                     primary = Navy,
                     secondary = Red,
@@ -112,6 +133,13 @@ class MainActivity : FragmentActivity() {
         .filter { it.isNotBlank() }.joinToString(" ").ifBlank { "Android Device" }
 
     private fun launchSystemUnlock(onSuccess: () -> Unit, onError: (String) -> Unit) {
+        try { deviceVault.prepareSystem() } catch (_: Exception) { onError("Set a device screen lock first, or choose an App PIN."); return }
+        if (Build.VERSION.SDK_INT < 30) {
+            val manager = getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
+            val intent = manager.createConfirmDeviceCredentialIntent("Unlock TRYIT", "Confirm your device screen lock")
+            if (intent == null) { onError("Set a device screen lock first, or choose an App PIN."); return }
+            credentialSuccess = onSuccess; credentialError = onError; credentialLauncher.launch(intent); return
+        }
         val authenticators = BiometricManager.Authenticators.BIOMETRIC_STRONG or
             BiometricManager.Authenticators.DEVICE_CREDENTIAL
         val can = BiometricManager.from(this).canAuthenticate(authenticators)
@@ -151,14 +179,45 @@ class MainActivity : FragmentActivity() {
         var workspaceInitial by rememberSaveable { mutableStateOf("hub") }
         val savedScreens = rememberSaveableStateHolder()
         val scope = rememberCoroutineScope()
+        var unlockBusy by remember { mutableStateOf(false) }
+        var unlockError by remember { mutableStateOf("") }
+        fun completeUnlock() {
+            if (unlockBusy) return
+            unlockBusy = true; unlockError = ""
+            scope.launch {
+                val r = withContext(Dispatchers.IO) { renewOrEnroll() }
+                unlockBusy = false
+                if (r.ok) {
+                    if (r.cookie.isNotBlank()) secure.put("session_cookie", r.cookie.substringBefore(';'))
+                    r.json?.optJSONObject("profile")?.let { profile = UserProfile.fromJson(it); storeProfile(profile) }
+                    secure.put("session_needs_refresh", ""); route = resumeRoute
+                } else if (r.code in listOf(401,403)) {
+                    deviceVault.clear(); clearSession(); savedScreens.removeState("orders"); savedScreens.removeState("workspace"); route = "login"
+                    Toast.makeText(this@MainActivity, "Please sign in again. Device login expired or access changed.", Toast.LENGTH_LONG).show()
+                } else unlockError = r.error
+            }
+        }
+        fun selectLock(mode: String, pin: String = "") {
+            fun enable() {
+                deviceVault.clear()
+                if (pin.isNotBlank()) savePin(pin)
+                secure.put("lock_mode", mode); secure.put("lock_timeout", "0"); secure.put("lock_setup_done", "1")
+                resumeRoute = "home"; route = "unlock"; completeUnlock()
+            }
+            if (mode == "system") launchSystemUnlock({ enable() }) { Toast.makeText(this@MainActivity,it,Toast.LENGTH_LONG).show() }
+            else enable()
+        }
 
         LaunchedEffect(Unit) {
-            SessionEvents.expired.collect {
+            SessionEvents.expired.collect { expiredCookie ->
                 withContext(Dispatchers.Main.immediate) {
-                    clearSession()
-                    savedScreens.removeState("orders"); savedScreens.removeState("workspace")
-                    resumeRoute = "home"; route = "login"
-                    Toast.makeText(this@MainActivity, "Session expired. Please sign in again.", Toast.LENGTH_LONG).show()
+                    if (expiredCookie != secure.get("session_cookie") || route in listOf("unlock","login","locksetup")) return@withContext
+                    if (deviceVault.exists() && secure.get("lock_mode") in listOf("system","pin")) {
+                        resumeRoute = route; secure.put("session_needs_refresh", "1"); unlockError = "Session expired. Unlock to reconnect."; route = "unlock"
+                    } else {
+                        clearSession(); savedScreens.removeState("orders"); savedScreens.removeState("workspace")
+                        resumeRoute = "home"; route = "login"
+                    }
                 }
             }
         }
@@ -166,7 +225,7 @@ class MainActivity : FragmentActivity() {
         LaunchedEffect(lockRequested) {
             if (lockRequested && secure.get("session_cookie").isNotBlank()) {
                 if(route !in listOf("unlock","login","locksetup")) resumeRoute = route
-                route = "unlock"
+                unlockError = ""; route = "unlock"
                 lockRequested = false
             }
         }
@@ -186,6 +245,8 @@ class MainActivity : FragmentActivity() {
             }
         }
 
+        Column(Modifier.fillMaxSize()) {
+        Box(Modifier.weight(1f).fillMaxWidth()) {
         when (route) {
             "login" -> LoginScreen(
                 initialServer = secure.get("server_url"),
@@ -199,10 +260,13 @@ class MainActivity : FragmentActivity() {
                         setBusy(false)
                         if (result.ok) {
                             secure.put("server_url", normalizeServer(server))
+                            deviceVault.clear(); deviceVault.resetSystemKey()
                             secure.put("session_cookie", result.cookie)
+                            secure.put("session_needs_refresh", "")
                             secure.put("remembered_user", if (remember) user else "")
                             profile = result.profile ?: UserProfile(username = user)
                             storeProfile(profile)
+                            resumeRoute = "home"
                             route = if (secure.get("lock_setup_done") == "1") {
                                 if (secure.get("lock_mode") == "none") "home" else "unlock"
                             } else "locksetup"
@@ -216,50 +280,28 @@ class MainActivity : FragmentActivity() {
                 onBack = { route = "login" }
             )
             "locksetup" -> LockSetupScreen(
-                onSystemLock = {
-                    secure.put("lock_mode", "system")
-                    secure.put("lock_timeout", "0")
-                    secure.put("lock_setup_done", "1")
-                    route = "home"
-                },
-                onPinSaved = { pin ->
-                    savePin(pin)
-                    secure.put("lock_mode", "pin")
-                    secure.put("lock_timeout", "0")
-                    secure.put("lock_setup_done", "1")
-                    route = "home"
-                },
-                onSkip = {
-                    secure.put("lock_mode", "none")
-                    secure.put("lock_setup_done", "1")
-                    route = "home"
-                }
+                onSystemLock = { selectLock("system") },
+                onPinSaved = { selectLock("pin", it) },
+                onSkip = { deviceVault.clear(); secure.put("lock_mode", "none"); secure.put("lock_setup_done", "1"); route = "home" }
             )
             "unlock" -> UnlockScreen(
-                mode = secure.get("lock_mode"),
+                mode = secure.get("lock_mode"), busy = unlockBusy, externalError = unlockError,
                 onSystemUnlock = { success, error -> launchSystemUnlock(success, error) },
                 verifyPin = { verifyPin(it) },
-                onUnlocked = { route = resumeRoute },
-                onLogout = {
-                    scope.launch {
-                        logoutRemote()
-                        clearSession()
-                        savedScreens.removeState("orders"); savedScreens.removeState("workspace"); resumeRoute = "home"
-                        route = "login"
-                    }
-                }
+                onUnlocked = { completeUnlock() },
+                onLogout = { scope.launch { logoutRemote(); clearSession(); deviceVault.clear(); savedScreens.removeState("orders"); savedScreens.removeState("workspace"); resumeRoute = "home"; route = "login" } }
             )
             "orders" -> savedScreens.SaveableStateProvider("orders") { NativeOrders(secure, onHome = { route = ordersOrigin }, initialOrder = ordersInitialId, returnToSource = ordersOrigin == "workspace") }
-            "workspace" -> savedScreens.SaveableStateProvider("workspace") { NativeWorkspace(secure, onHome = { route = "home" }, onOrders = { id -> ordersInitialId = id; ordersOrigin = "workspace"; savedScreens.removeState("orders"); route = "orders" }, initialModule = workspaceInitial) }
+            "workspace" -> savedScreens.SaveableStateProvider("workspace") { key(workspaceInitial) { NativeWorkspace(secure, onHome = { route = "home" }, onOrders = { id -> ordersInitialId = id; ordersOrigin = "workspace"; savedScreens.removeState("orders"); route = "orders" }, initialModule = workspaceInitial) } }
             "profile" -> ProfileScreen(profile = profile, onBack = { route = "home" })
             "settings" -> SettingsScreen(
                 currentMode = secure.get("lock_mode"),
                 currentTimeout = secure.get("lock_timeout").toLongOrNull() ?: 0L,
                 server = secure.get("server_url"),
                 deviceId = secure.get("device_id"),
-                onSetSystem = { secure.put("lock_mode", "system") },
-                onSetPin = { pin -> savePin(pin); secure.put("lock_mode", "pin") },
-                onDisable = { secure.put("lock_mode", "none") },
+                onSetSystem = { selectLock("system") },
+                onSetPin = { pin -> selectLock("pin", pin) },
+                onDisable = { scope.launch { revokeDeviceRemote(); deviceVault.clear(); secure.put("lock_mode", "none") } },
                 onTimeout = { secure.put("lock_timeout", it.toString()) },
                 onBack = { route = "home" }
             )
@@ -277,12 +319,29 @@ class MainActivity : FragmentActivity() {
                 onLogout = {
                     scope.launch {
                         logoutRemote()
-                        clearSession()
+                        clearSession(); deviceVault.clear()
                         savedScreens.removeState("orders"); savedScreens.removeState("workspace"); resumeRoute = "home"
                         route = "login"
                     }
                 }
             )
+        }
+        }
+        if (route in listOf("home","orders","workspace")) {
+            NavigationBar(containerColor = ComposeColor.White, tonalElevation = 0.dp) {
+                val tabs = listOf("Dashboard" to Icons.Default.SpaceDashboard, "Orders" to Icons.Default.ReceiptLong, "Operations" to Icons.Default.LocalShipping, "Masters" to Icons.Default.FolderCopy, "More" to Icons.Default.GridView)
+                tabs.forEachIndexed { i, (label, icon) ->
+                    val selected = when(i) { 0 -> route=="home"; 1 -> route=="orders"; 2 -> route=="workspace" && workspaceInitial=="production"; 3 -> route=="workspace" && workspaceInitial=="masters"; else -> route=="workspace" && workspaceInitial=="hub" }
+                    NavigationBarItem(selected = selected, onClick = {
+                        when(i) {
+                            0 -> route="home"
+                            1 -> { ordersInitialId=""; ordersOrigin="home"; route="orders" }
+                            else -> { val next=when(i){2->"production";3->"masters";else->"hub"}; if(workspaceInitial!=next) savedScreens.removeState("workspace"); workspaceInitial=next; route="workspace" }
+                        }
+                    }, icon = { Icon(icon, label + " tab") }, label = { Text(label,fontSize=10.sp,maxLines=1,modifier=Modifier.clearAndSetSemantics {}) }, colors = NavigationBarItemDefaults.colors(selectedIconColor=Red,selectedTextColor=Navy,indicatorColor=ComposeColor(0xFFFDECEE)))
+                }
+            }
+        }
         }
     }
 
@@ -293,7 +352,29 @@ class MainActivity : FragmentActivity() {
         return if (secure.get("lock_mode") == "none") "home" else "unlock"
     }
 
-    private suspend fun logoutRemote() = withContext(Dispatchers.IO) {
+    private fun renewOrEnroll(): ApiResult {
+        val system = secure.get("lock_mode") == "system"
+        return try {
+            val token = deviceVault.read(system)
+            val body = JSONObject().put("device_id", secure.get("device_id"))
+            if (token.isNotBlank()) ApiClient.post(secure.get("server_url"), "/api/mobile/auth/refresh", body.put("token", token), "")
+            else {
+                val r = ApiClient.post(secure.get("server_url"), "/api/mobile/auth/enroll", body, secure.get("session_cookie"))
+                val newToken = r.json?.optString("token").orEmpty()
+                if (r.ok && newToken.isNotBlank()) { deviceVault.save(newToken, system); r }
+                else if (r.code == 404 && secure.get("session_needs_refresh") != "1") {
+                    runOnUiThread { Toast.makeText(this, "Install the Premium server update to remember this device.", Toast.LENGTH_LONG).show() }; ApiResult(true)
+                } else if (r.ok) ApiResult(false,"Server did not confirm device login. Install the Premium server update.") else r
+            }
+        } catch (_: Exception) { ApiResult(false, "Device unlock could not be verified. Try again, or log out and sign in.") }
+    }
+    private suspend fun revokeDeviceRemote() = withContext(Dispatchers.IO) {
+        runCatching { val token = deviceVault.read(secure.get("lock_mode")=="system"); if(token.isNotBlank()) ApiClient.post(secure.get("server_url"),"/api/mobile/auth/revoke",JSONObject().put("device_id",secure.get("device_id")).put("token",token),"") }
+    }
+
+    private suspend fun logoutRemote() {
+        revokeDeviceRemote()
+        withContext(Dispatchers.IO) {
         runCatching {
             ApiClient.post(
                 secure.get("server_url"),
@@ -304,10 +385,13 @@ class MainActivity : FragmentActivity() {
         }
     }
 
+    }
+
     private fun clearSession() {
         secure.put("session_cookie", "")
         secure.put("background_at", "")
         secure.put("profile_json", "")
+        secure.put("session_needs_refresh", "")
     }
 
     private fun storeProfile(p: UserProfile) {
@@ -326,25 +410,25 @@ class MainActivity : FragmentActivity() {
     private fun savePin(pin: String) {
         val salt = ByteArray(16).also { SecureRandom().nextBytes(it) }
         secure.put("pin_salt", Base64.encodeToString(salt, Base64.NO_WRAP))
-        secure.put("pin_hash", hashPin(pin, salt))
+        secure.put("pin_hash", hashPin(pin, salt, true))
+        secure.put("pin_kdf", "pbkdf2")
+        secure.put("pin_attempts", "0"); secure.put("pin_blocked_until", "0")
     }
 
     private fun verifyPin(pin: String): Boolean {
-        val saltRaw = secure.get("pin_salt")
-        val expected = secure.get("pin_hash")
+        if ((secure.get("pin_blocked_until").toLongOrNull() ?: 0L) > System.currentTimeMillis()) return false
+        val saltRaw = secure.get("pin_salt"); val expected = secure.get("pin_hash")
         if (saltRaw.isBlank() || expected.isBlank()) return false
         val salt = Base64.decode(saltRaw, Base64.NO_WRAP)
-        return MessageDigest.isEqual(
-            expected.toByteArray(StandardCharsets.UTF_8),
-            hashPin(pin, salt).toByteArray(StandardCharsets.UTF_8)
-        )
+        val matches = MessageDigest.isEqual(expected.toByteArray(), hashPin(pin,salt,secure.get("pin_kdf")=="pbkdf2").toByteArray())
+        if (matches) { if(secure.get("pin_kdf")!="pbkdf2") savePin(pin); secure.put("pin_attempts","0") }
+        else { val attempts=(secure.get("pin_attempts").toIntOrNull()?:0)+1; secure.put("pin_attempts",attempts.toString()); if(attempts>=5) { secure.put("pin_blocked_until",(System.currentTimeMillis()+30000L).toString()); secure.put("pin_attempts","0") } }
+        return matches
     }
-
-    private fun hashPin(pin: String, salt: ByteArray): String {
-        val md = MessageDigest.getInstance("SHA-256")
-        md.update(salt)
-        md.update(pin.toByteArray(StandardCharsets.UTF_8))
-        return Base64.encodeToString(md.digest(), Base64.NO_WRAP)
+    private fun hashPin(pin: String, salt: ByteArray, modern: Boolean): String {
+        val bytes = if(modern) SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256").generateSecret(PBEKeySpec(pin.toCharArray(),salt,120000,256)).encoded
+        else MessageDigest.getInstance("SHA-256").apply { update(salt); update(pin.toByteArray(StandardCharsets.UTF_8)) }.digest()
+        return Base64.encodeToString(bytes,Base64.NO_WRAP)
     }
 
     @Composable
@@ -354,9 +438,9 @@ class MainActivity : FragmentActivity() {
         onLogin: (String, String, String, Boolean, (Boolean) -> Unit, (String) -> Unit) -> Unit,
         onForgot: () -> Unit
     ) {
-        var server by rememberSaveable { mutableStateOf(initialServer) }
+        val server = initialServer.ifBlank { OMS_URL }
         var username by rememberSaveable { mutableStateOf(rememberedUser) }
-        var password by rememberSaveable { mutableStateOf("") }
+        var password by remember { mutableStateOf("") }
         var remember by rememberSaveable { mutableStateOf(rememberedUser.isNotBlank()) }
         var showPassword by rememberSaveable { mutableStateOf(false) }
         var busy by remember { mutableStateOf(false) }
@@ -364,20 +448,22 @@ class MainActivity : FragmentActivity() {
 
         Box(Modifier.fillMaxSize().background(Cream)) {
             Column(
-                Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(22.dp),
+                Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().imePadding().verticalScroll(rememberScrollState()).padding(24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Spacer(Modifier.height(34.dp))
-                Surface(shape = RoundedCornerShape(24.dp), color = ComposeColor.White, shadowElevation = 8.dp) {
+                Spacer(Modifier.height(38.dp))
+                Surface(shape=RoundedCornerShape(24.dp),color=Navy,modifier=Modifier.size(78.dp)) { Box(contentAlignment=Alignment.Center){Text("T",fontSize=48.sp,fontWeight=FontWeight.Black,color=ComposeColor.White)} }
+                Spacer(Modifier.height(16.dp))
+                Text("TRYIT",fontSize=36.sp,fontWeight=FontWeight.Black,color=Navy,letterSpacing=4.sp)
+                Text("E X C L U S I V E",fontSize=11.sp,fontWeight=FontWeight.SemiBold,color=Red)
+                Spacer(Modifier.height(30.dp))
+                Surface(shape = RoundedCornerShape(24.dp), color = ComposeColor.White, shadowElevation = 2.dp) {
                     Column(Modifier.padding(22.dp).widthIn(max = 480.dp)) {
-                        Text("TRYIT", fontSize = 32.sp, fontWeight = FontWeight.Black, color = Navy)
-                        Text("Native Pilot • All Phases", color = Red, fontWeight = FontWeight.SemiBold)
-                        Spacer(Modifier.height(22.dp))
-                        Text("Sign in", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Navy)
-                        Text("Use your existing KIRAN OMS account.", color = ComposeColor(0xFF64748B))
+                        Row(verticalAlignment=Alignment.CenterVertically){Icon(Icons.Default.VerifiedUser,null,tint=Red,modifier=Modifier.size(18.dp));Spacer(Modifier.width(8.dp));Text("YOUR BUSINESS, CONNECTED",fontSize=10.sp,fontWeight=FontWeight.Bold,color=Navy)}
+                        Spacer(Modifier.height(20.dp))
+                        Text("Welcome back", fontSize = 26.sp, fontWeight = FontWeight.Bold, color = Navy)
+                        Text("Sign in to manage your day with TRYIT OMS.", color = ComposeColor(0xFF64748B))
                         Spacer(Modifier.height(18.dp))
-                        OutlinedTextField(server, { server = it }, label = { Text("Server URL") }, placeholder = { Text("https://... or http://192.168...") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
-                        Spacer(Modifier.height(10.dp))
                         OutlinedTextField(username, { username = it }, label = { Text("Username") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
                         Spacer(Modifier.height(10.dp))
                         OutlinedTextField(
@@ -385,10 +471,9 @@ class MainActivity : FragmentActivity() {
                             visualTransformation = if (showPassword) VisualTransformation.None else PasswordVisualTransformation(),
                             trailingIcon = { IconButton({ showPassword = !showPassword }) { Icon(if (showPassword) Icons.Default.VisibilityOff else Icons.Default.Visibility, null) } }
                         )
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Checkbox(remember, { remember = it }); Text("Remember username")
-                            Spacer(Modifier.weight(1f))
-                            TextButton(onForgot) { Text("Forgot password?") }
+                        Column {
+                            Row(verticalAlignment=Alignment.CenterVertically) { Checkbox(remember, { remember = it }); Text("Remember username") }
+                            TextButton(onForgot,modifier=Modifier.align(Alignment.End)) { Text("Forgot password?") }
                         }
                         if (error.isNotBlank()) Text(error, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(vertical = 8.dp))
                         Button(
@@ -401,7 +486,7 @@ class MainActivity : FragmentActivity() {
                             else Text("Log In", fontWeight = FontWeight.Bold)
                         }
                         Spacer(Modifier.height(14.dp))
-                        Text("App version 1.0.0 • Native Android", color = ComposeColor(0xFF94A3B8), fontSize = 12.sp)
+                        Text("TRYIT OMS • Secure connection • v1.1.0", color = ComposeColor(0xFF94A3B8), fontSize = 12.sp)
                     }
                 }
             }
@@ -411,8 +496,8 @@ class MainActivity : FragmentActivity() {
     @Composable
     private fun ForgotPasswordScreen(server: String, onBack: () -> Unit) {
         var user by rememberSaveable { mutableStateOf("") }
-        var otp by rememberSaveable { mutableStateOf("") }
-        var newPass by rememberSaveable { mutableStateOf("") }
+        var otp by remember { mutableStateOf("") }
+        var newPass by remember { mutableStateOf("") }
         var stage by rememberSaveable { mutableIntStateOf(1) }
         var message by remember { mutableStateOf("") }
         var error by remember { mutableStateOf("") }
@@ -456,15 +541,15 @@ class MainActivity : FragmentActivity() {
 
     @Composable
     private fun LockSetupScreen(onSystemLock: () -> Unit, onPinSaved: (String) -> Unit, onSkip: () -> Unit) {
-        var pin by rememberSaveable { mutableStateOf("") }
-        var confirm by rememberSaveable { mutableStateOf("") }
+        var pin by remember { mutableStateOf("") }
+        var confirm by remember { mutableStateOf("") }
         var showPinForm by rememberSaveable { mutableStateOf(false) }
-        Column(Modifier.fillMaxSize().background(Soft).padding(22.dp).verticalScroll(rememberScrollState())) {
+        Column(Modifier.fillMaxSize().background(Soft).statusBarsPadding().navigationBarsPadding().imePadding().padding(22.dp).verticalScroll(rememberScrollState())) {
             Spacer(Modifier.height(28.dp))
             Icon(Icons.Default.Lock, null, tint = Navy, modifier = Modifier.size(52.dp))
             Spacer(Modifier.height(12.dp))
             Text("Protect TRYIT", fontSize = 28.sp, fontWeight = FontWeight.Black, color = Navy)
-            Text("Choose how the app should unlock when you return.", color = ComposeColor(0xFF64748B))
+            Text("Unlock securely when you return. This device can reconnect without entering your password for up to 90 days.", color = ComposeColor(0xFF64748B))
             Spacer(Modifier.height(24.dp))
             ActionCard(Icons.Default.Fingerprint, "Use Screen Lock", "Fingerprint, face or device PIN/password", onSystemLock)
             Spacer(Modifier.height(12.dp))
@@ -489,12 +574,13 @@ class MainActivity : FragmentActivity() {
     @Composable
     private fun UnlockScreen(
         mode: String,
+        busy: Boolean, externalError: String,
         onSystemUnlock: ((() -> Unit), (String) -> Unit) -> Unit,
         verifyPin: (String) -> Boolean,
         onUnlocked: () -> Unit,
         onLogout: () -> Unit
     ) {
-        var pin by rememberSaveable { mutableStateOf("") }
+        var pin by remember { mutableStateOf("") }
         var error by remember { mutableStateOf("") }
         var launched by remember { mutableStateOf(false) }
         LaunchedEffect(mode) {
@@ -503,7 +589,7 @@ class MainActivity : FragmentActivity() {
                 onSystemUnlock(onUnlocked) { error = it }
             }
         }
-        Column(Modifier.fillMaxSize().background(Navy).padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+        Column(Modifier.fillMaxSize().background(Navy).statusBarsPadding().navigationBarsPadding().imePadding().verticalScroll(rememberScrollState()).padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
             Icon(Icons.Default.Lock, null, tint = ComposeColor.White, modifier = Modifier.size(54.dp))
             Spacer(Modifier.height(12.dp))
             Text("TRYIT Locked", color = ComposeColor.White, fontSize = 26.sp, fontWeight = FontWeight.Black)
@@ -512,10 +598,12 @@ class MainActivity : FragmentActivity() {
             if (mode == "pin") {
                 OutlinedTextField(pin, { if (it.length <= 6 && it.all(Char::isDigit)) pin = it }, label = { Text("App PIN") }, visualTransformation = PasswordVisualTransformation(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword), colors = OutlinedTextFieldDefaults.colors(focusedTextColor = ComposeColor.White, unfocusedTextColor = ComposeColor.White, focusedBorderColor = ComposeColor.White, unfocusedBorderColor = ComposeColor(0xFF64748B), focusedLabelColor = ComposeColor.White, unfocusedLabelColor = ComposeColor(0xFFCBD5E1)), modifier = Modifier.fillMaxWidth())
                 Spacer(Modifier.height(12.dp))
-                Button({ if (verifyPin(pin)) onUnlocked() else error = "Incorrect PIN" }, enabled = pin.length >= 4, modifier = Modifier.fillMaxWidth()) { Text("Unlock") }
+                Button({ if (verifyPin(pin)) onUnlocked() else error = "Incorrect PIN. After 5 attempts, wait 30 seconds." }, enabled = !busy && pin.length >= 4, modifier = Modifier.fillMaxWidth()) { Text("Unlock") }
             } else {
-                Button({ onSystemUnlock(onUnlocked) { error = it } }, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.Fingerprint, null); Spacer(Modifier.width(8.dp)); Text("Unlock with Device") }
+                Button({ onSystemUnlock(onUnlocked) { error = it } }, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.Fingerprint, null); Spacer(Modifier.width(8.dp)); Text("Unlock with Device") }
             }
+            if(busy) { Spacer(Modifier.height(14.dp)); CircularProgressIndicator(color=ComposeColor.White); Text("Reconnecting securely…",color=ComposeColor.White) }
+            if(externalError.isNotBlank()) Text(externalError,color=ComposeColor(0xFFFCA5A5),modifier=Modifier.padding(top=12.dp))
             if (error.isNotBlank()) Text(error, color = ComposeColor(0xFFFCA5A5), modifier = Modifier.padding(top = 12.dp))
             Spacer(Modifier.height(18.dp))
             TextButton(onClick = onLogout) { Text("Log out", color = ComposeColor.White) }
@@ -606,7 +694,7 @@ class MainActivity : FragmentActivity() {
         var mode by remember { mutableStateOf(currentMode) }
         var timeout by remember { mutableLongStateOf(currentTimeout) }
         var showPin by remember { mutableStateOf(false) }
-        var pin by rememberSaveable { mutableStateOf("") }
+        var pin by remember { mutableStateOf("") }
         Scaffold(topBar = { AppTopBar("Settings", onBack) }) { pad ->
             Column(Modifier.padding(pad).padding(18.dp).verticalScroll(rememberScrollState())) {
                 Text("App Lock", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Navy)
@@ -625,10 +713,9 @@ class MainActivity : FragmentActivity() {
                 }
                 Spacer(Modifier.height(22.dp))
                 Text("App & Device", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Navy)
-                ProfileRow("Version", "1.0.0 All Phases")
-                ProfileRow("Server", server.ifBlank { "Not configured" })
-                ProfileRow("Device ID", deviceId)
-                ProfileRow("Package", "com.tryitexclusive.nativepilot")
+                ProfileRow("Version", "1.1.0")
+                ProfileRow("Connected to", "TRYIT OMS")
+                Text("With App Lock enabled, remembered device login lasts up to 90 days. Access changes may require a fresh sign in.",color=ComposeColor(0xFF64748B),modifier=Modifier.padding(top=12.dp))
             }
         }
     }
@@ -703,7 +790,7 @@ data class UserProfile(
     }
 }
 
-data class ApiResult(val ok: Boolean, val error: String = "", val cookie: String = "", val profile: UserProfile? = null, val json: JSONObject? = null)
+data class ApiResult(val ok: Boolean, val error: String = "", val cookie: String = "", val profile: UserProfile? = null, val json: JSONObject? = null, val code: Int = 0)
 
 object ApiClient {
     fun login(server: String, username: String, password: String, deviceId: String, deviceName: String): ApiResult {
@@ -722,6 +809,7 @@ object ApiClient {
         return try {
             val conn = URL(server.trimEnd('/') + path).openConnection() as HttpURLConnection
             conn.requestMethod = "POST"
+            conn.instanceFollowRedirects = false
             conn.connectTimeout = 12000
             conn.readTimeout = 15000
             conn.doOutput = true
@@ -733,9 +821,9 @@ object ApiClient {
             val stream = if (code in 200..299) conn.inputStream else conn.errorStream
             val text = stream?.bufferedReader()?.use { it.readText() }.orEmpty()
             val json = runCatching { JSONObject(text) }.getOrElse { JSONObject() }
-            val ok = code in 200..299 && json.optBoolean("ok", true)
+            val ok = code in 200..299 && json.optBoolean("ok", false)
             val setCookie = conn.getHeaderField("Set-Cookie").orEmpty()
-            ApiResult(ok, if (ok) "" else json.optString("error", "Request failed ($code)"), setCookie, json = json)
+            ApiResult(ok, if (ok) "" else json.optString("error", "Request failed ($code)"), setCookie, json = json, code = code).also { conn.disconnect() }
         } catch (e: Exception) {
             ApiResult(false, e.message ?: "Unable to connect to server")
         }

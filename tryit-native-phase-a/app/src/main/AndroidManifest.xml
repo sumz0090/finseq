@@ -6,8 +6,8 @@
 
     <application
         android:allowBackup="false"
-        android:usesCleartextTraffic="true"
-        android:label="TRYIT Native Pilot"
+        android:usesCleartextTraffic="${allowCleartext}"
+        android:label="TRYIT OMS"
         android:icon="@drawable/ic_tryit"
         android:roundIcon="@drawable/ic_tryit"
         android:theme="@style/AppTheme">

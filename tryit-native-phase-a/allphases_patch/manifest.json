@@ -1,5 +1,5 @@
 {
-  "phase": "Native All Phases v1.0.0",
+  "phase": "Native Premium v1.1.0",
   "compatible_bases": [
     {
       "name": "Phase 10.37/10.38",
@@ -12,11 +12,20 @@
       "existing_addons": {
         "mobile_orders_api.py": "cf3713a87a9bfedda0e05c61643de8f219dce0ddfb7b7e4d0baaa68c7e07e78c"
       }
+    },
+    {
+      "name": "Native All Phases v1.0.0",
+      "server_sha256": "0ea31123740bb6747843f2cd6500b81b69d59186ed06dc290b7f6a950c2e2e28",
+      "existing_addons": {
+        "mobile_workspace_api.py": "ae6942a9e25a8cdb7b9884663e2cb79d69d7717164d44ba0a1eac3959b117359",
+        "mobile_orders_api.py": "476c2b811e3de7aa6eebe364d07e024ce6d79842363978902bd8831676d0bff8"
+      }
     }
   ],
   "files": {
-    "server.py": "0ea31123740bb6747843f2cd6500b81b69d59186ed06dc290b7f6a950c2e2e28",
     "mobile_workspace_api.py": "ae6942a9e25a8cdb7b9884663e2cb79d69d7717164d44ba0a1eac3959b117359",
-    "mobile_orders_api.py": "476c2b811e3de7aa6eebe364d07e024ce6d79842363978902bd8831676d0bff8"
+    "mobile_orders_api.py": "476c2b811e3de7aa6eebe364d07e024ce6d79842363978902bd8831676d0bff8",
+    "mobile_auth_api.py": "0b90360db5ceae5c057d3c952275ff814c0ac6f70285faabff6284c024a2e739",
+    "server.py": "c6f3fe61b9d8d5c925c848fc07576c11d41d1cfc8ef57f9defb49f755ddab689"
   }
 }

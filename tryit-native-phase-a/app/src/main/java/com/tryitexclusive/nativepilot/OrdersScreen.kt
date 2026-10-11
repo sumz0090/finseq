@@ -55,14 +55,15 @@ data class OrderResponse(val json:JSONObject?=null,val error:String="",val code:
 
 object OrdersApi {
     fun request(secure:SecureStore,path:String,body:JSONObject?=null):OrderResponse = try {
+        val requestCookie=secure.get("session_cookie")
         val c=URL(normalizeServer(secure.get("server_url")).trimEnd('/')+path).openConnection() as HttpURLConnection
         try {
             c.requestMethod=if(body==null) "GET" else "POST";c.instanceFollowRedirects=false
             c.connectTimeout=12000;c.readTimeout=20000;c.setRequestProperty("Accept","application/json")
-            c.setRequestProperty("Cookie",secure.get("session_cookie"))
+            c.setRequestProperty("Cookie",requestCookie)
             if(body!=null){c.doOutput=true;c.setRequestProperty("Content-Type","application/json");c.outputStream.use{it.write(body.toString().toByteArray(Charsets.UTF_8))}}
             val code=c.responseCode
-            if(code==401)SessionEvents.expired.tryEmit(Unit)
+            if(code==401)SessionEvents.expired.tryEmit(requestCookie)
             val text=(if(code in 200..299)c.inputStream else c.errorStream)?.bufferedReader()?.use{it.readText()}.orEmpty()
             val j=runCatching{JSONObject(text)}.getOrNull()
             if(code in 200..299 && j?.optBoolean("ok")==true) OrderResponse(j,code=code)
@@ -121,7 +122,7 @@ fun NativeOrders(secure:SecureStore,onHome:()->Unit,initialOrder:String="",retur
     Column(Modifier.fillMaxSize().background(CSoft).statusBarsPadding().navigationBarsPadding()) {
         Surface(color=CNavy){Row(Modifier.fillMaxWidth().height(64.dp).padding(horizontal=8.dp),verticalAlignment=Alignment.CenterVertically){
             IconButton({if(!saving){if(route=="list")onHome() else if(route=="edit")route="detail" else if(route=="detail"&&returnToSource)onHome() else route="list"}}){Icon(Icons.Default.ArrowBack,"Back",tint=Color.White)}
-            Column(Modifier.weight(1f)){Text(if(route=="create")"New Order" else if(route=="edit")"Edit Order" else "Orders",color=Color.White,fontWeight=FontWeight.Bold,fontSize=21.sp);Text("TRYIT • Native All Phases",color=Color(0xFFCBD5E1),fontSize=11.sp)}
+            Column(Modifier.weight(1f)){Text(if(route=="create")"New Order" else if(route=="edit")"Edit Order" else "Orders",color=Color.White,fontWeight=FontWeight.Bold,fontSize=21.sp);Text("TRYIT EXCLUSIVE / OMS",color=Color(0xFFCBD5E1),fontSize=11.sp)}
             if(route=="list"||route=="detail") IconButton({if(!saving)reload()}){Icon(Icons.Default.Refresh,"Refresh",tint=Color.White)}
         }}
         if(loading||saving) LinearProgressIndicator(Modifier.fillMaxWidth())

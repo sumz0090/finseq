@@ -7,6 +7,7 @@ from email.message import EmailMessage
 from urllib.parse import urlparse, parse_qs
 from mobile_orders_api import handle as handle_mobile_orders
 from mobile_workspace_api import handle as handle_mobile_workspace
+from mobile_auth_api import handle_mobile_auth, revoke as revoke_remembered_devices
 
 ROOT=Path(__file__).resolve().parent
 DISCOVERY_PORT=8789
@@ -603,6 +604,7 @@ def _cleanup_oms_sessions():
 
 def _revoke_user_sessions(username,exclude_token=None):
     username=_norm_username(username); removed=0
+    revoke_remembered_devices(globals(), username)
     with AUTH_LOCK:
         for tok,sess in list(OMS_SESSIONS.items()):
             if sess.get('user')==username and tok!=exclude_token:
@@ -1215,6 +1217,7 @@ class Handler(SimpleHTTPRequestHandler):
     def do_POST(self):
         global STATE
         u=urlparse(self.path)
+        if handle_mobile_auth(self, globals(), 'POST', u.path): return
         if handle_mobile_workspace(self, globals(), 'POST', u.path): return
         if handle_mobile_orders(self, globals(), 'POST', u.path): return
         if u.path=='/api/oms/login':
@@ -1261,6 +1264,7 @@ class Handler(SimpleHTTPRequestHandler):
             session_id=secrets.token_hex(8)
             with AUTH_LOCK:
                 if row.get('single_device'):
+                    revoke_remembered_devices(globals(), uname)
                     for _tok,_s in list(OMS_SESSIONS.items()):
                         if _s.get('user')==uname: OMS_SESSIONS.pop(_tok,None)
                 OMS_SESSIONS[token]={'session_id':session_id,'user':uname,'role':role,'expires':now+hours*3600,'login_at':now_iso(),'last_seen':now,'ip':ip,'device_id':device_id,'device_name':device_name,'session_version':int(row.get('session_version',0) or 0)}
@@ -1283,7 +1287,9 @@ class Handler(SimpleHTTPRequestHandler):
             self.send_json({'ok':True,'role':role,'user':uname,'profile':_public_user(uname,row)},extra_headers={'Set-Cookie':cookie});return
         if u.path=='/api/oms/logout':
             token=self._cookie_map().get('kiran_oms_user','')
-            with AUTH_LOCK:OMS_SESSIONS.pop(token,None)
+            with AUTH_LOCK:
+                old=OMS_SESSIONS.pop(token,None)
+                if old: revoke_remembered_devices(globals(), old.get('user'), old.get('device_id'))
             cookie='kiran_oms_user=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0'
             if self._secure_cookie():cookie+='; Secure'
             self.send_json({'ok':True},extra_headers={'Set-Cookie':cookie});return
@@ -1370,7 +1376,9 @@ class Handler(SimpleHTTPRequestHandler):
                     try:
                         if float(salary)<0:raise ValueError()
                     except Exception:self.send_json({'ok':False,'error':'Salary must be a valid non-negative amount.'},400);return
+                security_before={k:row.get(k) for k in ('role','active','allow_wan','single_device','restrict_devices','allowed_ips','must_change_password')}
                 row.update({'role':role,'full_name':full_name,'father_name':father_name,'designation':designation,'email':email,'mobile':mobile,'address':address,'aadhaar':aadhaar,'pan':pan,'joining_date':joining_date,'salary':salary,'profile_visibility':merged_vis,'active':bool(body.get('active')) if 'active' in body else bool(row.get('active',True)),'allow_wan':bool(body.get('allow_wan')) if 'allow_wan' in body else bool(row.get('allow_wan',True)),'single_device':bool(body.get('single_device')) if 'single_device' in body else bool(row.get('single_device',False)),'must_change_password':bool(body.get('must_change_password')) if 'must_change_password' in body else bool(row.get('must_change_password',False)),'restrict_devices':bool(body.get('restrict_devices')) if 'restrict_devices' in body else bool(row.get('restrict_devices',False)),'allowed_ips':[str(x).strip() for x in (body.get('allowed_ips') or []) if str(x).strip()] if 'allowed_ips' in body else (row.get('allowed_ips') if isinstance(row.get('allowed_ips'),list) else []),'updated_at':now_iso()})
+                if any(row.get(k)!=v for k,v in security_before.items()): _revoke_user_sessions(uname)
                 perms=body.get('permissions')
                 if isinstance(perms,dict): row['permissions']=perms
                 pwd=str(body.get('password') or '')
@@ -1388,6 +1396,7 @@ class Handler(SimpleHTTPRequestHandler):
                 if not row:self.send_json({'ok':False,'error':'User account not found.'},404);return
                 if uname=='admin' and action in ('deactivate','lock'):
                     self.send_json({'ok':False,'error':'The primary administrator account cannot be disabled.'},400);return
+                if action in ('deactivate','lock'): _revoke_user_sessions(uname)
                 row['active']=action in ('activate','unlock');row['updated_at']=now_iso();_save_user_master(d)
                 append_config_audit('user_status_changed',{'username':uname,'active':row['active']},actor=sess.get('user','admin'))
                 self.send_json({'ok':True,'message':'User status updated.','user':_public_user(uname,row)});return
@@ -1396,6 +1405,7 @@ class Handler(SimpleHTTPRequestHandler):
                 row=users.get(uname)
                 if not row:self.send_json({'ok':False,'error':'User account not found.'},404);return
                 # Preserve audit identity: soft delete/deactivate only.
+                _revoke_user_sessions(uname)
                 row['active']=False;row['deleted_at']=now_iso();row['updated_at']=now_iso();_save_user_master(d)
                 append_config_audit('user_deactivated',{'username':uname},actor=sess.get('user','admin'))
                 self.send_json({'ok':True,'message':'User deactivated. Historical activity remains preserved.'});return
@@ -1412,6 +1422,7 @@ class Handler(SimpleHTTPRequestHandler):
                 with AUTH_LOCK:
                     for tok,sess in list(OMS_SESSIONS.items()):
                         if str(sess.get('session_id') or '')==sid:
+                            revoke_remembered_devices(globals(), sess.get('user'), sess.get('device_id'))
                             OMS_SESSIONS.pop(tok,None);removed+=1;clear_current=clear_current or tok==current_token
                 append_config_audit('force_logout_session',{'session_id':sid,'removed':removed},actor=admin.get('user','admin'))
             elif action=='logout_user':
@@ -1419,6 +1430,7 @@ class Handler(SimpleHTTPRequestHandler):
                 append_config_audit('force_logout_user',{'username':uname,'removed':removed},actor=admin.get('user','admin'))
             elif action=='logout_all':
                 include_admin=bool(body.get('include_admin',False))
+                revoke_remembered_devices(globals(), keep=None if include_admin else (admin.get('user'),admin.get('device_id')))
                 with AUTH_LOCK:
                     for tok,sess in list(OMS_SESSIONS.items()):
                         if not include_admin and tok==current_token:continue

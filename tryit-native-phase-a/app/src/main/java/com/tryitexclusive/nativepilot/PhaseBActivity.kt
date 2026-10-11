@@ -69,14 +69,26 @@ private val BAmber = ComposeColor(0xFFF59E0B)
 
         Scaffold(topBar={
             Surface(color=BNavy,shadowElevation=4.dp){Row(Modifier.fillMaxWidth().statusBarsPadding().height(66.dp).padding(horizontal=14.dp),verticalAlignment=Alignment.CenterVertically){
-                Column{Text("TRYIT",color=ComposeColor.White,fontSize=22.sp,fontWeight=FontWeight.Black);Text("Operations Dashboard",color=ComposeColor(0xFFCBD5E1),fontSize=11.sp)}
+                Column{Text("TRYIT",color=ComposeColor.White,fontSize=22.sp,fontWeight=FontWeight.Black);Text("EXCLUSIVE  /  OMS",color=ComposeColor(0xFFCBD5E1),fontSize=10.sp)}
                 Spacer(Modifier.weight(1f)); Column(Modifier.clickable(onClick=onProfile),horizontalAlignment=Alignment.End){Text(profile.fullName.ifBlank{profile.username.ifBlank{"User"}},color=ComposeColor.White,fontWeight=FontWeight.Bold,fontSize=12.sp);Text(profile.designation.ifBlank{profile.role.ifBlank{"Account"}},color=ComposeColor(0xFFCBD5E1),fontSize=10.sp)}
                 IconButton(onLock){Icon(Icons.Default.Lock,"Lock",tint=ComposeColor.White)};IconButton(onSettings){Icon(Icons.Default.Settings,null,tint=ComposeColor.White)}
             }}
         }) { pad ->
-            Column(Modifier.padding(pad).fillMaxSize().verticalScroll(rememberScrollState()).padding(14.dp)) {
-                Surface(shape=RoundedCornerShape(22.dp),color=BNavy){Column(Modifier.padding(18.dp)){Text("Operations Dashboard",color=ComposeColor.White,fontSize=25.sp,fontWeight=FontWeight.Black);Text("Live OMS data • same period across all dashboard widgets",color=ComposeColor(0xFFCBD5E1))}}
-                Spacer(Modifier.height(12.dp)); Button({onOrders("")},modifier=Modifier.fillMaxWidth()){Icon(Icons.Default.ReceiptLong,null);Spacer(Modifier.width(6.dp));Text("Open Orders")};Spacer(Modifier.height(8.dp)); OutlinedButton(onModules,modifier=Modifier.fillMaxWidth()){Icon(Icons.Default.Apps,null);Spacer(Modifier.width(6.dp));Text("All Modules")};Spacer(Modifier.height(12.dp))
+            Column(Modifier.padding(pad).fillMaxSize().background(BSoft).verticalScroll(rememberScrollState()).padding(18.dp)) {
+                Surface(shape=RoundedCornerShape(24.dp),color=BNavy,modifier=Modifier.fillMaxWidth()){Column(Modifier.padding(22.dp)){
+                    Row(verticalAlignment=Alignment.CenterVertically){Surface(shape=RoundedCornerShape(8.dp),color=ComposeColor(0xFF263951)){Text("BUSINESS OVERVIEW",color=ComposeColor.White,fontSize=10.sp,fontWeight=FontWeight.Bold,modifier=Modifier.padding(horizontal=10.dp,vertical=6.dp))};Spacer(Modifier.weight(1f));Icon(Icons.Default.Insights,null,tint=ComposeColor(0xFFEF6B72),modifier=Modifier.size(28.dp))}
+                    Spacer(Modifier.height(18.dp))
+                    Text("Hello, ${profile.fullName.ifBlank{profile.username}.substringBefore(' ').ifBlank{"there"}}",color=ComposeColor.White,fontSize=28.sp,fontWeight=FontWeight.Bold)
+                    Text("Your orders. Your progress. One place.",color=ComposeColor(0xFFCBD5E1),fontSize=13.sp,modifier=Modifier.padding(top=5.dp))
+                    Spacer(Modifier.height(20.dp))
+                    Row(horizontalArrangement=Arrangement.spacedBy(10.dp)) {
+                        Button({onOrders("")},colors=ButtonDefaults.buttonColors(containerColor=BRed),modifier=Modifier.weight(1f)){Icon(Icons.Default.ReceiptLong,null,modifier=Modifier.size(18.dp));Spacer(Modifier.width(6.dp));Text("Open Orders",fontSize=12.sp)}
+                        OutlinedButton(onModules,modifier=Modifier.weight(1f),colors=ButtonDefaults.outlinedButtonColors(contentColor=ComposeColor.White),border=androidx.compose.foundation.BorderStroke(1.dp,ComposeColor(0xFF55647B))){Icon(Icons.Default.Apps,null,modifier=Modifier.size(18.dp));Spacer(Modifier.width(6.dp));Text("All Modules",fontSize=12.sp)}
+                    }
+                }}
+                Spacer(Modifier.height(18.dp))
+                Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){Text("At a glance",fontSize=20.sp,fontWeight=FontWeight.Bold,color=BNavy,modifier=Modifier.weight(1f));Text("LIVE OMS",fontSize=10.sp,fontWeight=FontWeight.Bold,color=BGreen)}
+                Spacer(Modifier.height(10.dp))
                 Surface(shape=RoundedCornerShape(18.dp),color=ComposeColor.White){Column(Modifier.padding(14.dp)){
                     Box{OutlinedButton({expanded=true}){Icon(Icons.Default.DateRange,null);Spacer(Modifier.width(6.dp));Text(period)};DropdownMenu(expanded,{expanded=false}){listOf("Today","Yesterday","Last 7 Days","This Month","Last Month","Last 30 Days","This Quarter","Financial Year","Custom").forEach{p->DropdownMenuItem({Text(p)},{period=p;expanded=false})}}}
                     if(period=="Custom") {Spacer(Modifier.height(8.dp));Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){OutlinedTextField(customFrom,{customFrom=it},label={Text("From YYYY-MM-DD")},modifier=Modifier.weight(1f),singleLine=true);OutlinedTextField(customTo,{customTo=it},label={Text("To YYYY-MM-DD")},modifier=Modifier.weight(1f),singleLine=true)}}
@@ -102,7 +114,7 @@ private val BAmber = ComposeColor(0xFFF59E0B)
         selectedStatus?.let { s -> AlertDialog(onDismissRequest={selectedStatus=null},confirmButton={TextButton({drill=data.recent.filter{it.status==s.name};selectedStatus=null}){Text("View Orders")}},dismissButton={TextButton({selectedStatus=null}){Text("Close")}},title={Text(s.name)},text={Text("Orders: ${s.orders}\nPairs: ${s.pairs}\nShare: ${if(data.totalOrders>0) "%.1f".format(s.orders*100.0/data.totalOrders) else "0.0"}%")}) }
     }
 
-    @Composable private fun MetricCard(label:String,value:String,icon:androidx.compose.ui.graphics.vector.ImageVector,modifier:Modifier){Surface(modifier,shape=RoundedCornerShape(18.dp),color=ComposeColor.White,shadowElevation=2.dp){Column(Modifier.padding(15.dp)){Icon(icon,null,tint=BRed);Text(value,fontSize=24.sp,fontWeight=FontWeight.Black,color=BNavy);Text(label,fontSize=12.sp,color=ComposeColor(0xFF64748B))}}}
+    @Composable private fun MetricCard(label:String,value:String,icon:androidx.compose.ui.graphics.vector.ImageVector,modifier:Modifier){Surface(modifier,shape=RoundedCornerShape(18.dp),color=ComposeColor.White,shadowElevation=2.dp){Column(Modifier.padding(15.dp)){Surface(shape=RoundedCornerShape(12.dp),color=ComposeColor(0xFFFDECEE)){Icon(icon,null,tint=BRed,modifier=Modifier.padding(10.dp).size(22.dp))};Spacer(Modifier.height(14.dp));Text(value,fontSize=30.sp,fontWeight=FontWeight.Black,color=BNavy);Text(label,fontSize=12.sp,color=ComposeColor(0xFF64748B))}}}
     @Composable private fun StatusCard(s:StatusMetric,modifier:Modifier,onClick:()->Unit){Surface(modifier.clickable(onClick=onClick),shape=RoundedCornerShape(18.dp),color=ComposeColor.White,shadowElevation=2.dp){Column(Modifier.padding(14.dp)){Text(s.name,fontSize=12.sp,color=ComposeColor(0xFF64748B));Text(s.orders.toString(),fontSize=22.sp,fontWeight=FontWeight.Black,color=BNavy);Text("${s.pairs} pairs",fontSize=11.sp,color=BRed)}}}
     @Composable private fun SectionTitle(t:String){Text(t,fontSize=19.sp,fontWeight=FontWeight.Bold,color=BNavy,modifier=Modifier.padding(bottom=8.dp))}
     @Composable private fun EmptyCard(t:String){Surface(shape=RoundedCornerShape(18.dp),color=ComposeColor.White){Text(t,modifier=Modifier.padding(16.dp),color=ComposeColor(0xFF64748B))}}
@@ -151,7 +163,7 @@ object DashboardApi {
             c.requestMethod="GET";c.instanceFollowRedirects=false;c.connectTimeout=9000;c.readTimeout=15000
             c.setRequestProperty("Accept","application/json");c.setRequestProperty("Cookie",cookie)
             val code=c.responseCode
-            if(code==401)SessionEvents.expired.tryEmit(Unit)
+            if(code==401)SessionEvents.expired.tryEmit(cookie)
             if(code !in 200..299) null to if(code==401||code==403) "Session expired or access denied. Please log in again." else "Dashboard request failed ($code)"
             else {
                 val j=JSONObject(c.inputStream.bufferedReader().use{it.readText()})

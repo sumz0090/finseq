@@ -18,7 +18,7 @@ class OrdersHttpTests(unittest.TestCase):
         cls.temp = tempfile.TemporaryDirectory()
         cls.root = Path(cls.temp.name)
         payload = Path(__file__).resolve().parents[1] / 'allphases_patch/payload'
-        for name in ('server.py', 'mobile_orders_api.py', 'mobile_workspace_api.py'):
+        for name in ('server.py', 'mobile_orders_api.py', 'mobile_workspace_api.py', 'mobile_auth_api.py'):
             shutil.copy2(payload / name, cls.root / name)
         sys.path.insert(0, str(cls.root))
         spec = importlib.util.spec_from_file_location('phasec_test_server', cls.root / 'server.py')

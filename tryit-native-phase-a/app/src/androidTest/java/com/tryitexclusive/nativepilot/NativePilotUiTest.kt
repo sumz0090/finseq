@@ -31,6 +31,8 @@ private class PilotFixture {
     val server=ServerSocket(0,20,InetAddress.getByName("127.0.0.1"))
     @Volatile var expired=false
     @Volatile var restricted=false
+    @Volatile var allowRefresh=false
+    val authRequests=CopyOnWriteArrayList<String>()
     val writes=CopyOnWriteArrayList<JSONObject>()
     private val keys=listOf("orders","production","dispatch","stock","accounts","reports","masters","settings").flatMap{m->listOf("view","add","edit","delete").map{"${m}_$it"}}+listOf("production_approve","dispatch_approve","reports_export")
     private val worker=Thread{
@@ -41,11 +43,13 @@ private class PilotFixture {
                 while(true){val line=input.readLine()?:break;if(line.isBlank())break;if(line.startsWith("Content-Length:",true))length=line.substringAfter(':').trim().toInt()}
                 val chars=CharArray(length);var got=0;while(got<length){val n=input.read(chars,got,length-got);if(n<0)break;got+=n}
                 val path=first.split(' ').getOrElse(1){"/"}
-                if(first.startsWith("POST")){val body=runCatching{JSONObject(String(chars))}.getOrDefault(JSONObject());writes.add(body)}
-                val data=if(expired)JSONObject().put("ok",false).put("error","Session expired")else response(path,first.startsWith("POST"))
+                if(path.startsWith("/api/mobile/auth/"))authRequests.add(path)
+                if(first.startsWith("POST")&&!path.startsWith("/api/mobile/auth/")){val body=runCatching{JSONObject(String(chars))}.getOrDefault(JSONObject());writes.add(body)}
+                val denied=expired && !(allowRefresh && path=="/api/mobile/auth/refresh")
+                val data=if(denied)JSONObject().put("ok",false).put("error","Session expired")else response(path,first.startsWith("POST"))
                 val raw=data.toString().toByteArray(StandardCharsets.UTF_8)
-                val status=if(expired)"401 Unauthorized"else "200 OK"
-                s.getOutputStream().write(("HTTP/1.1 $status\r\nContent-Type: application/json\r\nContent-Length: ${raw.size}\r\nConnection: close\r\n\r\n").toByteArray(StandardCharsets.UTF_8));s.getOutputStream().write(raw)
+                val status=if(denied)"401 Unauthorized"else "200 OK"
+                s.getOutputStream().write(("HTTP/1.1 $status\r\nContent-Type: application/json\r\nSet-Cookie: kiran_oms_user=renewed; Path=/; HttpOnly\r\nContent-Length: ${raw.size}\r\nConnection: close\r\n\r\n").toByteArray(StandardCharsets.UTF_8));s.getOutputStream().write(raw)
             }}catch(_:SocketException){break}catch(_:Exception){}
         }
     }.apply{isDaemon=true;start()}
@@ -53,6 +57,8 @@ private class PilotFixture {
     private fun order()=JSONObject().put("orderNo",1).put("groupOrderNo",1).put("groupLineNo",1).put("party","QA PARTY").put("partyCode","Q001").put("factory","QA FACTORY").put("article","QA ARTICLE").put("colour","BLACK").put("sole","QA SOLE").put("box","QA BOX").put("orderDate",java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("dd-MM-uuuu"))).put("totalPairs",12).put("sizes",JSONObject().put("sz6",12)).put("status","In Production")
     private fun wrap(o:JSONObject)=JSONObject().put("data",o).put("token","fixture-token")
     private fun response(path:String,post:Boolean):JSONObject{
+        if(path=="/api/mobile/auth/enroll")return JSONObject().put("ok",true).put("token","fixture-device-token-00000000000000000000000000000000")
+        if(path=="/api/mobile/auth/refresh"){expired=false;return JSONObject().put("ok",true).put("profile",JSONObject().put("username","qa").put("role","admin"))}
         if(post)return JSONObject().put("ok",true).put("message","Saved on server")
         if(path=="/api/state")return JSONObject().put("ok",true).put("values",JSONObject().put("st_orders",JSONArray().put(order()).toString()))
         if(path.startsWith("/api/mobile/orders/context"))return JSONObject().put("ok",true).put("permissions",permissions()).put("orders",JSONArray().put(wrap(order()))).put("masters",JSONObject()).put("reset_epoch","fixture-epoch")
@@ -80,6 +86,7 @@ class NativePilotUiTest {
             val context=ApplicationProvider.getApplicationContext<Context>()
             context.getSharedPreferences("tryit_native_secure",Context.MODE_PRIVATE).edit().clear().commit()
             val secure=SecureStore(context)
+            RememberedDevice(context,secure).clear()
             secure.put("server_url","http://127.0.0.1:${fixture.server.localPort}")
             secure.put("session_cookie","kiran_oms_user=fixture")
             secure.put("lock_mode","none");secure.put("lock_setup_done","1")
@@ -92,6 +99,57 @@ class NativePilotUiTest {
     private fun openModules(){waitText("All Modules");compose.onNodeWithText("All Modules").performClick();waitText("Your workspace")}
     private fun scrollToModule(name:String){compose.onNode(hasScrollToIndexAction()).performScrollToNode(hasText(name))}
     private fun openModule(name:String){scrollToModule(name);compose.onNodeWithText(name).performClick()}
+
+    private fun pinLock() {
+        val ctx=ApplicationProvider.getApplicationContext<Context>();val secure=SecureStore(ctx)
+        val salt="premium-test-salt".toByteArray()
+        secure.put("pin_salt",Base64.encodeToString(salt,Base64.NO_WRAP))
+        secure.put("pin_hash",Base64.encodeToString(MessageDigest.getInstance("SHA-256").apply{update(salt);update("1234".toByteArray())}.digest(),Base64.NO_WRAP))
+        secure.put("pin_kdf","");secure.put("lock_mode","pin");secure.put("lock_timeout","0")
+        RememberedDevice(ctx,secure).save("fixture-device-token-00000000000000000000000000000000",false)
+    }
+    @Test fun expiryUnlockRenewsWithoutPasswordOrWrites() {
+        pinLock(); fixture.expired=true;fixture.allowRefresh=true
+        compose.onNodeWithText("All Modules").performClick();waitText("App PIN")
+        compose.onNodeWithText("App PIN").performTextInput("9999");compose.onNodeWithText("Unlock",substring=false).performClick()
+        assertFalse(fixture.authRequests.contains("/api/mobile/auth/refresh"))
+        compose.onNodeWithText("App PIN").performTextReplacement("1234");compose.onNodeWithText("Unlock",substring=false).performClick();waitText("Your workspace")
+        val ctx=ApplicationProvider.getApplicationContext<Context>()
+        assertEquals("kiran_oms_user=renewed",SecureStore(ctx).get("session_cookie"))
+        assertEquals("pbkdf2",SecureStore(ctx).get("pin_kdf"));assertEquals(0,fixture.writes.size)
+    }
+    @Test fun revokedDeviceRequiresFreshLogin() {
+        pinLock();fixture.expired=true
+        compose.onNodeWithText("All Modules").performClick();waitText("App PIN")
+        compose.onNodeWithText("App PIN").performTextInput("1234");compose.onNodeWithText("Unlock",substring=false).performClick();waitText("Log In")
+        compose.onNodeWithText("Server URL").assertDoesNotExist()
+        assertFalse(RememberedDevice(ApplicationProvider.getApplicationContext<Context>(),SecureStore(ApplicationProvider.getApplicationContext<Context>())).exists())
+    }
+    @Test fun fiveNavigationTabsOpenTheirScreens() {
+        waitText("All Modules")
+        compose.onNodeWithContentDescription("Masters tab").performClick();waitText("Create Party")
+        compose.onNodeWithContentDescription("Operations tab").performClick();waitText("Stage")
+        compose.onNodeWithContentDescription("Orders tab").performClick();waitText("Master Orders")
+        compose.onNodeWithContentDescription("More tab").performClick();waitText("Your workspace")
+        compose.onNodeWithContentDescription("Dashboard tab").performClick();waitText("All Modules")
+    }
+
+    private fun screenshot(name:String) {
+        compose.runOnIdle { compose.activity.window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE) }
+        compose.waitForIdle();Thread.sleep(300)
+        val instrumentation=androidx.test.platform.app.InstrumentationRegistry.getInstrumentation()
+        val bitmap=instrumentation.uiAutomation.takeScreenshot()
+        java.io.File(compose.activity.filesDir,"premium_$name.png").outputStream().use { bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG,100,it) }
+        compose.runOnIdle { compose.activity.window.addFlags(WindowManager.LayoutParams.FLAG_SECURE) }
+    }
+    @Test fun capturePremiumScreensFromIsolatedFixture() {
+        waitText("All Modules");screenshot("dashboard")
+        openModules();screenshot("workspace")
+        compose.onNodeWithContentDescription("Dashboard tab").performClick();waitText("All Modules")
+        compose.onNodeWithText("Log Out").performScrollTo().performClick();waitText("Welcome back");screenshot("login")
+        compose.onNodeWithText("Server URL").assertDoesNotExist()
+        assertTrue(compose.activity.window.attributes.flags and WindowManager.LayoutParams.FLAG_SECURE != 0)
+    }
 
     @Test fun allNativeModulesOpenAndBackWorks(){
         openModules()
@@ -132,7 +190,7 @@ class NativePilotUiTest {
         waitText("TRYIT Locked")
         androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)
         compose.onNodeWithText("TRYIT Locked").assertIsDisplayed()
-        compose.onNodeWithText("App PIN").performTextInput("9999");compose.onNodeWithText("Unlock",substring=false).performClick();waitText("Incorrect PIN")
+        compose.onNodeWithText("App PIN").performTextInput("9999");compose.onNodeWithText("Unlock",substring=false).performClick();waitText("Incorrect PIN. After 5 attempts, wait 30 seconds.")
         compose.onNodeWithText("App PIN").performTextReplacement("1234");compose.onNodeWithText("Unlock",substring=false).performClick();waitText("QA LOCK DRAFT")
         compose.onNodeWithText("Name *").assertTextContains("QA LOCK DRAFT")
         assertEquals(0,fixture.writes.size)
