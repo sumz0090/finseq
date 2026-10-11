@@ -1,0 +1,8 @@
+package in.finseq.insurance;
+import android.app.*;import android.os.*;import android.content.*;import android.view.*;import android.widget.*;import org.json.*;
+public class AccountsActivity extends FinseqActivity{
+ LinearLayout root,list;public void onCreate(Bundle b){super.onCreate(b);root=Ui.column(this);Ui.appHeader(root,this,"Accounts");LinearLayout body=Ui.contentColumn(this);root.addView(body);body.addView(Ui.sub(this,"Bank, cash, UPI and card accounts · tap for details"));list=new LinearLayout(this);list.setOrientation(LinearLayout.VERTICAL);body.addView(list);Ui.setScreen(this,root,3);load();}
+ void load(){Ui.run(this,()->{try{JSONObject j=ApiClient.get(this,"/api/v1/sync");JSONArray a=j.optJSONArray("accounts");Ui.ui(this,()->render(a));}catch(Exception e){Ui.ui(this,()->Ui.toast(this,e.getMessage()));}});}
+ void render(JSONArray a){list.removeAllViews();if(a==null||a.length()==0){list.addView(Ui.sub(this,"No account register access or no accounts configured."));return;}for(int i=0;i<a.length();i++){JSONObject x=a.optJSONObject(i);LinearLayout c=Ui.card(this);c.addView(Ui.text(this,x.optString("name","Account")+"  ›",17,true));c.addView(Ui.sub(this,x.optString("type")+" · "+x.optString("institution")+(x.optString("last4").isEmpty()?"":" · •••• "+x.optString("last4"))));c.addView(Ui.text(this,"Balance: "+Ui.money(x.optDouble("balance"))+"    Open dues: "+Ui.money(x.optDouble("open_due")),14,true));int id=x.optInt("id");c.setOnClickListener(v->open(id));list.addView(c);}}
+ void open(int id){startActivity(new Intent(this,AccountDetailsActivity.class).putExtra("account_id",id));}
+}

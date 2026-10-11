@@ -1,0 +1,37 @@
+name: Build FINSEQ CMS APK
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'FINSEQ_CMS_Android/**'
+      - '.github/workflows/build-finseq-cms-apk.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - uses: android-actions/setup-android@v3
+      - name: Install Android SDK 35
+        run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+      - name: Build FINSEQ CMS Debug APK
+        working-directory: FINSEQ_CMS_Android
+        run: gradle --no-daemon :app:assembleDebug
+      - name: Prepare APK
+        run: |
+          cp FINSEQ_CMS_Android/app/build/outputs/apk/debug/app-debug.apk FINSEQ_CMS_V3_0_3_0_ATTENDANCE.apk
+          ls -lh FINSEQ_CMS_V3_0_3_0_ATTENDANCE.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: FINSEQ-CMS-V3.0.3.0-Attendance
+          path: FINSEQ_CMS_V3_0_3_0_ATTENDANCE.apk
+          if-no-files-found: error

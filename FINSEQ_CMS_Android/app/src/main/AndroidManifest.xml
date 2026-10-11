@@ -1,0 +1,53 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="in.finseq.insurance">
+    <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="35"/>
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.USE_BIOMETRIC"/>
+    <uses-permission android:name="android.permission.USE_FINGERPRINT"/>
+    <uses-permission android:name="android.permission.CAMERA"/>
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <application
+        android:name=".FinseqApplication"
+        android:theme="@style/AppTheme"
+        android:label="FINSEQ CMS"
+        android:icon="@mipmap/ic_launcher"
+        android:usesCleartextTraffic="true"
+        android:networkSecurityConfig="@xml/network_security_config">
+        <provider android:name="androidx.core.content.FileProvider" android:authorities="${applicationId}.fileprovider" android:exported="false" android:grantUriPermissions="true"><meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/file_paths"/></provider>
+        <activity android:name=".AttendanceActivity" android:screenOrientation="portrait"/>
+        <activity android:name=".PhysicalCopyRegisterActivity" android:screenOrientation="portrait"/>
+        <activity android:name=".DisplaySettingsActivity" android:screenOrientation="portrait"/>
+        <activity android:name=".MoreActivity" android:screenOrientation="portrait"/>
+        <activity android:name=".AccountDetailsActivity" android:screenOrientation="portrait"/>
+        <activity android:name=".SchemesActivity" android:screenOrientation="portrait"/>
+        <activity android:name=".FamilyToolsActivity" android:screenOrientation="portrait"/>
+        <activity android:name=".UnassignedPoliciesActivity" android:screenOrientation="portrait"/>
+        <activity android:name=".PhysicalCopyActivity" android:screenOrientation="portrait"/>
+        <activity android:name=".UploadPolicyActivity" android:screenOrientation="portrait"/>
+        <activity android:name=".RenewalsActivity" android:screenOrientation="portrait"/>
+        <activity android:name=".PoliciesActivity" android:screenOrientation="portrait"/>
+        <activity android:name=".AccountsActivity" android:screenOrientation="portrait"/>
+        <activity android:name=".MandatesActivity" android:screenOrientation="portrait"/>
+        <activity android:name=".OrdersActivity" android:screenOrientation="portrait"/>
+        <activity android:name=".MfListActivity" android:screenOrientation="portrait"/>
+        <activity android:name=".InvestActivity" android:screenOrientation="portrait"/>
+        <activity android:name=".Customer360Activity" android:screenOrientation="portrait"/>
+        <activity android:name=".ClientsActivity" android:screenOrientation="portrait"/>
+        <activity android:name=".SecuritySettingsActivity" android:screenOrientation="portrait"/>
+        <activity android:name=".PdfPreviewActivity" android:screenOrientation="portrait"/>
+        <activity android:name=".PolicyDetailActivity" android:screenOrientation="portrait"/>
+        <activity android:name=".UccOnboardingActivity" android:screenOrientation="portrait"/>
+        <activity android:name=".MutualFundActivity" android:screenOrientation="portrait"/>
+        <activity android:name=".InsuranceActivity" android:screenOrientation="portrait"/>
+        <activity android:name=".MainActivity" android:screenOrientation="portrait"/>
+        <activity android:name=".LockActivity" android:screenOrientation="portrait"/>
+        <activity android:name=".LoginActivity" android:screenOrientation="portrait"/>
+        <activity android:name=".LauncherActivity" android:exported="true" android:screenOrientation="portrait">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>

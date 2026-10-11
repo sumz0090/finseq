@@ -1,0 +1,5 @@
+# FINSEQ CMS APK Build
+
+Use GitHub Actions workflow `build-finseq-cms-apk.yml` or run `gradle --no-daemon :app:assembleDebug` from this directory.
+
+Debug APK output: `app/build/outputs/apk/debug/app-debug.apk`.

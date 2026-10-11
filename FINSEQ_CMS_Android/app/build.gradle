@@ -1,0 +1,43 @@
+plugins { id 'com.android.application' }
+
+def keyPropertiesFile = rootProject.file('keystore.properties')
+def keyProperties = new Properties()
+if (keyPropertiesFile.exists()) {
+    keyPropertiesFile.withInputStream { keyProperties.load(it) }
+}
+
+android {
+    namespace 'in.finseq.insurance'
+    compileSdk 35
+    defaultConfig {
+        applicationId 'in.finseq.insurance'
+        minSdk 26
+        targetSdk 35
+        versionCode 340
+        versionName '3.0.3.0'
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+    signingConfigs {
+        release {
+            if (keyPropertiesFile.exists()) {
+                storeFile rootProject.file(keyProperties['storeFile'])
+                storePassword keyProperties['storePassword']
+                keyAlias keyProperties['keyAlias']
+                keyPassword keyProperties['keyPassword']
+            }
+        }
+    }
+    buildTypes {
+        release {
+            minifyEnabled false
+            if (keyPropertiesFile.exists()) signingConfig signingConfigs.release
+        }
+    }
+}
+
+dependencies {
+    implementation 'androidx.core:core:1.13.1'
+}
