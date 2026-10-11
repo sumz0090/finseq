@@ -20,16 +20,24 @@ jobs:
         with:
           gradle-version: '8.10.2'
           cache-read-only: false
-      - name: Retain isolated fixture previews before test cleanup
+      - name: Prepare preview collector
         run: |
-          python - <<'PY'
+          cat > collect_previews.py <<'PY'
+          import os, subprocess, time
           from pathlib import Path
-          p=Path('tryit-native-phase-a/app/src/androidTest/java/com/tryitexclusive/nativepilot/NativePilotUiTest.kt')
-          s=p.read_text()
-          marker='        compose.runOnIdle { compose.activity.window.addFlags(WindowManager.LayoutParams.FLAG_SECURE) }'
-          copy='        val saved = instrumentation.uiAutomation.executeShellCommand("sh -c \'mkdir -p /sdcard/Download; run-as com.tryitexclusive.nativepilot cat files/premium_" + name + ".png > /sdcard/Download/tryit_premium_" + name + ".png\'")\n        android.os.ParcelFileDescriptor.AutoCloseInputStream(saved).use { it.readBytes() }\n'
-          assert marker in s
-          p.write_text(s.replace(marker,copy+marker))
+          directory=Path('premium-previews');directory.mkdir(exist_ok=True)
+          pending=set(('dashboard','workspace','login'))
+          deadline=time.monotonic()+600
+          while pending and time.monotonic()<deadline:
+              for name in list(pending):
+                  result=subprocess.run(['adb','exec-out','run-as','com.tryitexclusive.nativepilot','cat','files/premium_'+name+'.png'],capture_output=True)
+                  if result.returncode==0 and result.stdout.startswith(b'\x89PNG\r\n\x1a\n'):
+                      temporary=directory/(name+'.tmp')
+                      temporary.write_bytes(result.stdout)
+                      os.replace(temporary,directory/(name+'.png'))
+                      pending.remove(name)
+              if pending: time.sleep(.2)
+          if pending: raise SystemExit('Preview capture incomplete')
           PY
       - name: Enable KVM
         run: |
@@ -45,9 +53,9 @@ jobs:
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
           script: |
-            cd tryit-native-phase-a && gradle --no-daemon :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.tryitexclusive.nativepilot.NativePilotUiTest#capturePremiumScreensFromIsolatedFixture
-            mkdir -p premium-previews
-            for name in dashboard workspace login; do adb pull /sdcard/Download/tryit_premium_$name.png premium-previews/$name.png; done
+            python collect_previews.py &
+            cd tryit-native-phase-a && gradle --no-daemon :app:connectedDebugAndroidTest
+            python -c "from pathlib import Path; assert all((Path('premium-previews')/(name+'.png')).read_bytes().startswith(bytes((137,80,78,71))) for name in ('dashboard','workspace','login'))"
       - uses: actions/upload-artifact@v4
         with:
           name: TRYIT-Premium-Design-Previews
