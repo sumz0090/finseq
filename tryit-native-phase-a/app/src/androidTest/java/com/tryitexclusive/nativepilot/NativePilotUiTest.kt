@@ -44,7 +44,7 @@ private class PilotFixture {
                 val chars=CharArray(length);var got=0;while(got<length){val n=input.read(chars,got,length-got);if(n<0)break;got+=n}
                 val path=first.split(' ').getOrElse(1){"/"}
                 if(path.startsWith("/api/mobile/auth/"))authRequests.add(path)
-                if(first.startsWith("POST")&&!path.startsWith("/api/mobile/auth/")){val body=runCatching{JSONObject(String(chars))}.getOrDefault(JSONObject());writes.add(body)}
+                if(first.startsWith("POST")&&!path.startsWith("/api/mobile/auth/")&&!path.startsWith("/api/oms/")){val body=runCatching{JSONObject(String(chars))}.getOrDefault(JSONObject());writes.add(body)}
                 val denied=expired && !(allowRefresh && path=="/api/mobile/auth/refresh")
                 val data=if(denied)JSONObject().put("ok",false).put("error","Session expired")else response(path,first.startsWith("POST"))
                 val raw=data.toString().toByteArray(StandardCharsets.UTF_8)
@@ -57,6 +57,7 @@ private class PilotFixture {
     private fun order()=JSONObject().put("orderNo",1).put("groupOrderNo",1).put("groupLineNo",1).put("party","QA PARTY").put("partyCode","Q001").put("factory","QA FACTORY").put("article","QA ARTICLE").put("colour","BLACK").put("sole","QA SOLE").put("box","QA BOX").put("orderDate",java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("dd-MM-uuuu"))).put("totalPairs",12).put("sizes",JSONObject().put("sz6",12)).put("status","In Production")
     private fun wrap(o:JSONObject)=JSONObject().put("data",o).put("token","fixture-token")
     private fun response(path:String,post:Boolean):JSONObject{
+        if(path=="/api/oms/login")return JSONObject().put("ok",true).put("profile",JSONObject().put("username","qa").put("full_name","QA Admin").put("role","admin"))
         if(path=="/api/mobile/auth/enroll")return JSONObject().put("ok",true).put("token","fixture-device-token-00000000000000000000000000000000")
         if(path=="/api/mobile/auth/refresh"){expired=false;return JSONObject().put("ok",true).put("profile",JSONObject().put("username","qa").put("role","admin"))}
         if(post)return JSONObject().put("ok",true).put("message","Saved on server")
@@ -107,6 +108,20 @@ class NativePilotUiTest {
         secure.put("pin_hash",Base64.encodeToString(MessageDigest.getInstance("SHA-256").apply{update(salt);update("1234".toByteArray())}.digest(),Base64.NO_WRAP))
         secure.put("pin_kdf","");secure.put("lock_mode","pin");secure.put("lock_timeout","0")
         RememberedDevice(ctx,secure).save("fixture-device-token-00000000000000000000000000000000",false)
+    }
+    @Test fun freshCredentialsOpenLockChoiceAndEnrollAppPin() {
+        waitText("All Modules");compose.onNodeWithText("Log Out").performScrollTo().performClick();waitText("Welcome back")
+        compose.onNodeWithText("Server URL").assertDoesNotExist()
+        compose.onNodeWithText("Username").performTextInput("qa")
+        compose.onNodeWithText("Password").performTextInput("fixture-password")
+        compose.onNodeWithText("Log In").performClick();waitText("Protect TRYIT")
+        compose.onNodeWithText("Set App PIN").performClick()
+        compose.onNodeWithText("4–6 digit PIN").performTextInput("1337")
+        compose.onNodeWithText("Confirm PIN").performTextInput("1337")
+        compose.onNodeWithText("Save PIN").performClick();waitText("All Modules")
+        val ctx=ApplicationProvider.getApplicationContext<Context>();val secure=SecureStore(ctx)
+        assertEquals("pin",secure.get("lock_mode"));assertTrue(RememberedDevice(ctx,secure).exists())
+        assertTrue(fixture.authRequests.contains("/api/mobile/auth/enroll"));assertEquals(0,fixture.writes.size)
     }
     @Test fun expiryUnlockRenewsWithoutPasswordOrWrites() {
         pinLock(); fixture.expired=true;fixture.allowRefresh=true
