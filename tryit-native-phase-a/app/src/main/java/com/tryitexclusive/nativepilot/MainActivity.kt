@@ -586,7 +586,7 @@ class MainActivity : FragmentActivity() {
         var error by remember { mutableStateOf("") }
         var launched by remember { mutableStateOf(false) }
         LaunchedEffect(mode) {
-            if (mode == "system" && !launched) {
+            if (mode == "system" && !launched && !busy) {
                 launched = true
                 onSystemUnlock(onUnlocked) { error = it }
             }
