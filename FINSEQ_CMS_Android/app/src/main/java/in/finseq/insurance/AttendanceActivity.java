@@ -4,17 +4,15 @@ import android.Manifest;
 import android.app.*;
 import android.content.*;
 import android.content.pm.PackageManager;
-import android.graphics.Bitmap;
 import android.location.*;
 import android.os.*;
-import android.provider.MediaStore;
 import android.util.Base64;
 import android.widget.*;
 import org.json.*;
 import java.io.*;
 import java.util.*;
 
-/** Multi-session employee attendance with live selfie, GPS/geofence and server-authoritative state. */
+/** Multi-session employee attendance with internal live selfie camera, GPS/geofence and server-authoritative state. */
 public class AttendanceActivity extends FinseqActivity {
     static final int REQ_PERMS=7101, REQ_CAMERA=7102;
     LinearLayout root,body,card,actions; TextView state,detail,verify; Button primary;
@@ -48,7 +46,7 @@ public class AttendanceActivity extends FinseqActivity {
         String sec="Device: "+AttendanceDevice.label();
         if(right("require_geofence"))sec+="\nGeofence: "+(office==null?"Not configured":office.optString("name")+" · "+office.optInt("radius_m")+"m");
         if(right("require_approved_device"))sec+="\nApproved device: required";
-        if(right("require_photo"))sec+="\nLive selfie: required (camera only)";verify.setText(sec);
+        if(right("require_photo"))sec+="\nLive selfie: required (internal camera only)";verify.setText(sec);
 
         if("check_out".equals(next)&&right("can_check_out")){
             int n=open==null?Math.max(1,sessions):open.optInt("session_no",Math.max(1,sessions));
@@ -65,7 +63,7 @@ public class AttendanceActivity extends FinseqActivity {
     static String time(String value){if(value==null||value.isEmpty())return "—";int p=value.indexOf('T');if(p<0)p=value.indexOf(' ');return p>=0&&value.length()>=p+6?value.substring(p+1,p+6):value;}
 
     void startAttempt(String action){
-        pendingAction=action;pendingLocation=null;postEvent(action.equals("check_in")?"CHECKIN_STARTED":"CHECKOUT_STARTED","Started");
+        pendingAction=action;pendingLocation=null;selfieFile=null;postEvent(action.equals("check_in")?"CHECKIN_STARTED":"CHECKOUT_STARTED","Started");
         ArrayList<String> missing=new ArrayList<>();
         boolean needGeo=right("require_geofence")||("check_out".equals(action)&&right("checkout_geofence"));
         if(needGeo&&checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)!=PackageManager.PERMISSION_GRANTED)missing.add(Manifest.permission.ACCESS_FINE_LOCATION);
@@ -89,73 +87,16 @@ public class AttendanceActivity extends FinseqActivity {
 
     void nextProof(){if(right("require_photo"))openCamera();else submit(null);}
 
-    /**
-     * Camera-only capture. Intentionally does NOT use EXTRA_OUTPUT/FileProvider.
-     * Samsung/Android 16 camera apps reliably return a fresh camera Bitmap in the result Intent
-     * for this mode. Gallery is never opened and no existing image can be selected.
-     */
     void openCamera(){
-        try{
-            Intent i=new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
-            i.putExtra("android.intent.extras.CAMERA_FACING",1);
-            i.putExtra("android.intent.extra.USE_FRONT_CAMERA",true);
-            i.putExtra("android.intent.extra.LENS_FACING_FRONT",1);
-            if(i.resolveActivity(getPackageManager())==null){
-                logBlocked("No camera app");
-                Ui.toast(this,"No camera app is available on this device.");
-                return;
-            }
-            startActivityForResult(i,REQ_CAMERA);
-        }catch(Exception e){
-            logBlocked("Camera open failed: "+e.getClass().getSimpleName());
-            Ui.toast(this,"Mandatory live camera could not be opened.");
-        }
-    }
-
-    boolean saveFreshBitmap(Bitmap bmp){
-        if(bmp==null)return false;
-        try{
-            File dir=new File(getCacheDir(),"attendance_camera");
-            if(!dir.exists()&&!dir.mkdirs())return false;
-            selfieFile=File.createTempFile("selfie_",".jpg",dir);
-            try(FileOutputStream out=new FileOutputStream(selfieFile,false)){
-                boolean ok=bmp.compress(Bitmap.CompressFormat.JPEG,90,out);
-                out.flush();
-                return ok&&selfieFile.isFile()&&selfieFile.length()>=100;
-            }
-        }catch(Exception e){return false;}
+        try{Intent i=new Intent(this,SelfieCameraActivity.class);startActivityForResult(i,REQ_CAMERA);}catch(Exception e){logBlocked("Internal camera open failed");Ui.toast(this,"Mandatory live selfie camera could not be opened.");}
     }
 
     @Override protected void onActivityResult(int request,int result,Intent data){
-        super.onActivityResult(request,result,data);
-        if(request!=REQ_CAMERA)return;
-
-        if(result!=RESULT_OK){
-            logBlocked("Camera cancelled result="+result);
-            Ui.toast(this,"Live selfie capture was cancelled. Attendance was not recorded.");
-            return;
-        }
-
-        Bitmap fresh=null;
-        try{
-            if(data!=null&&data.getExtras()!=null){
-                Object obj=data.getExtras().get("data");
-                if(obj instanceof Bitmap)fresh=(Bitmap)obj;
-            }
-        }catch(Exception ignored){}
-
-        if(!saveFreshBitmap(fresh)){
-            logBlocked("Camera returned no fresh bitmap");
-            Ui.toast(this,"Camera did not return the fresh selfie. Please retry the live camera.");
-            return;
-        }
-
-        new AlertDialog.Builder(this)
-            .setTitle("Use this live selfie?")
-            .setMessage("This fresh camera selfie will be attached to this attendance session.")
-            .setNegativeButton("Retake",(d,w)->openCamera())
-            .setPositiveButton("Use Photo",(d,w)->submit(selfieFile))
-            .show();
+        super.onActivityResult(request,result,data);if(request!=REQ_CAMERA)return;
+        if(result!=RESULT_OK||data==null){logBlocked("Mandatory selfie not captured");Ui.toast(this,"Mandatory live selfie was not captured. Gallery/upload is not allowed.");return;}
+        String path=data.getStringExtra("selfie_path");selfieFile=path==null?null:new File(path);
+        if(selfieFile==null||!selfieFile.isFile()||selfieFile.length()<100){logBlocked("Mandatory selfie file missing");Ui.toast(this,"Fresh selfie could not be saved. Please retry.");return;}
+        new AlertDialog.Builder(this).setTitle("Use this live selfie?").setMessage("This fresh selfie was captured inside FINSEQ and will be attached to this attendance session.").setNegativeButton("Retake",(d,w)->openCamera()).setPositiveButton("Use Photo",(d,w)->submit(selfieFile)).show();
     }
 
     void submit(File photo){
