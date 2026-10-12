@@ -5,10 +5,10 @@ import android.os.Build;
 import android.view.View;
 import android.view.WindowInsets;
 
-import androidx.activity.ComponentActivity;
+import androidx.fragment.app.FragmentActivity;
 
 /** Keeps each screen clear of Android's status bar, camera cutout and navigation bar. */
-public class FinseqActivity extends ComponentActivity {
+public class FinseqActivity extends FragmentActivity {
     @Override public void setContentView(View content) {
         super.setContentView(content);
         if (Build.VERSION.SDK_INT < 35 || getApplicationInfo().targetSdkVersion < 35) return;
