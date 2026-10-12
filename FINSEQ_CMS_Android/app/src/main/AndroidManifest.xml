@@ -16,35 +16,40 @@
         android:networkSecurityConfig="@xml/network_security_config">
         <provider android:name="androidx.core.content.FileProvider" android:authorities="${applicationId}.fileprovider" android:exported="false" android:grantUriPermissions="true"><meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/file_paths"/></provider>
         <activity android:name=".SelfieCameraActivity" android:screenOrientation="portrait" android:exported="false"/>
-        <activity android:name=".AttendanceActivity" android:screenOrientation="portrait"/>
-        <activity android:name=".PhysicalCopyRegisterActivity" android:screenOrientation="portrait"/>
-        <activity android:name=".DisplaySettingsActivity" android:screenOrientation="portrait"/>
-        <activity android:name=".MoreActivity" android:screenOrientation="portrait"/>
-        <activity android:name=".AccountDetailsActivity" android:screenOrientation="portrait"/>
-        <activity android:name=".SchemesActivity" android:screenOrientation="portrait"/>
-        <activity android:name=".FamilyToolsActivity" android:screenOrientation="portrait"/>
-        <activity android:name=".UnassignedPoliciesActivity" android:screenOrientation="portrait"/>
-        <activity android:name=".PhysicalCopyActivity" android:screenOrientation="portrait"/>
-        <activity android:name=".UploadPolicyActivity" android:screenOrientation="portrait"/>
-        <activity android:name=".RenewalsActivity" android:screenOrientation="portrait"/>
-        <activity android:name=".PoliciesActivity" android:screenOrientation="portrait"/>
-        <activity android:name=".AccountsActivity" android:screenOrientation="portrait"/>
-        <activity android:name=".MandatesActivity" android:screenOrientation="portrait"/>
-        <activity android:name=".OrdersActivity" android:screenOrientation="portrait"/>
-        <activity android:name=".MfListActivity" android:screenOrientation="portrait"/>
-        <activity android:name=".InvestActivity" android:screenOrientation="portrait"/>
-        <activity android:name=".Customer360Activity" android:screenOrientation="portrait"/>
-        <activity android:name=".ClientsActivity" android:screenOrientation="portrait"/>
-        <activity android:name=".SecuritySettingsActivity" android:screenOrientation="portrait"/>
-        <activity android:name=".PdfPreviewActivity" android:screenOrientation="portrait"/>
-        <activity android:name=".PolicyDetailActivity" android:screenOrientation="portrait"/>
-        <activity android:name=".UccOnboardingActivity" android:screenOrientation="portrait"/>
-        <activity android:name=".MutualFundActivity" android:screenOrientation="portrait"/>
-        <activity android:name=".InsuranceActivity" android:screenOrientation="portrait"/>
-        <activity android:name=".MainActivity" android:screenOrientation="portrait"/>
-        <activity android:name=".LockActivity" android:screenOrientation="portrait"/>
-        <activity android:name=".LoginActivity" android:screenOrientation="portrait"/>
-        <activity android:name=".LauncherActivity" android:exported="true" android:screenOrientation="portrait">
+        <activity android:name=".AttendanceActivity"/>
+        <activity android:name=".AttendanceCalendarActivity"/>
+        <activity android:name=".AttendanceLeaveActivity"/>
+        <activity android:name=".AttendanceCorrectionActivity"/>
+        <activity android:name=".AttendanceSalaryActivity"/>
+        <receiver android:name=".AttendanceReminderReceiver" android:exported="false"/>
+        <activity android:name=".PhysicalCopyRegisterActivity"/>
+        <activity android:name=".DisplaySettingsActivity"/>
+        <activity android:name=".MoreActivity"/>
+        <activity android:name=".AccountDetailsActivity"/>
+        <activity android:name=".SchemesActivity"/>
+        <activity android:name=".FamilyToolsActivity"/>
+        <activity android:name=".UnassignedPoliciesActivity"/>
+        <activity android:name=".PhysicalCopyActivity"/>
+        <activity android:name=".UploadPolicyActivity"/>
+        <activity android:name=".RenewalsActivity"/>
+        <activity android:name=".PoliciesActivity"/>
+        <activity android:name=".AccountsActivity"/>
+        <activity android:name=".MandatesActivity"/>
+        <activity android:name=".OrdersActivity"/>
+        <activity android:name=".MfListActivity"/>
+        <activity android:name=".InvestActivity"/>
+        <activity android:name=".Customer360Activity"/>
+        <activity android:name=".ClientsActivity"/>
+        <activity android:name=".SecuritySettingsActivity"/>
+        <activity android:name=".PdfPreviewActivity"/>
+        <activity android:name=".PolicyDetailActivity"/>
+        <activity android:name=".UccOnboardingActivity"/>
+        <activity android:name=".MutualFundActivity"/>
+        <activity android:name=".InsuranceActivity"/>
+        <activity android:name=".MainActivity"/>
+        <activity android:name=".LockActivity"/>
+        <activity android:name=".LoginActivity"/>
+        <activity android:name=".LauncherActivity" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
