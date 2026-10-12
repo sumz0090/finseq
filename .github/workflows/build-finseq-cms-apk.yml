@@ -37,10 +37,10 @@ jobs:
         run: gradle --no-daemon :app:assembleDebug
       - name: Prepare APK
         run: |
-          cp FINSEQ_CMS_Android/app/build/outputs/apk/debug/app-debug.apk FINSEQ_CMS_V3_0_4_1_MULTI_SESSION.apk
-          ls -lh FINSEQ_CMS_V3_0_4_1_MULTI_SESSION.apk
+          cp FINSEQ_CMS_Android/app/build/outputs/apk/debug/app-debug.apk FINSEQ_CMS_V3_0_4_4_INTERNAL_CAMERA.apk
+          ls -lh FINSEQ_CMS_V3_0_4_4_INTERNAL_CAMERA.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: FINSEQ-CMS-V3.0.4.1-Multi-Session
-          path: FINSEQ_CMS_V3_0_4_1_MULTI_SESSION.apk
+          name: FINSEQ-CMS-V3.0.4.4-Internal-Camera
+          path: FINSEQ_CMS_V3_0_4_4_INTERNAL_CAMERA.apk
           if-no-files-found: error
