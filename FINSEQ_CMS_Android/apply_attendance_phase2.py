@@ -4,11 +4,13 @@ p=root/'app/src/main/java/in/finseq/insurance/AttendanceActivity.java'
 s=p.read_text(encoding='utf-8')
 s=s.replace('@Override public void onCreate(Bundle b){super.onCreate(b);render();load();}','@Override public void onCreate(Bundle b){super.onCreate(b);render();if(getIntent().getBooleanExtra("reminder_open",false))postEvent("REMINDER_OPENED","Opened");load();}')
 s=s.replace('config=j;Ui.ui(this,this::show);','config=j;AttendanceReminderScheduler.sync(this,j);Ui.ui(this,this::show);')
-old='if(result!=RESULT_OK||data==null){logBlocked("Mandatory selfie not captured");Ui.toast(this,"Mandatory live selfie was not captured. Gallery/upload is not allowed.");return;}'
-new='if(result!=RESULT_OK||data==null){String cameraError=data==null?"":data.getStringExtra("camera_error");String reason=(cameraError==null||cameraError.trim().isEmpty())?"Mandatory selfie not captured":cameraError.trim();logBlocked(reason);Ui.toast(this,"Selfie camera: "+reason);return;}'
-s=s.replace(old,new)
-old2='new AlertDialog.Builder(this).setTitle("Use this live selfie?").setMessage("This fresh selfie was captured inside FINSEQ and will be attached to this attendance session.").setNegativeButton("Retake",(d,w)->openCamera()).setPositiveButton("Use Photo",(d,w)->submit(selfieFile)).show();'
-s=s.replace(old2,'submit(selfieFile);')
+old_open='''void openCamera(){\n        try{Intent i=new Intent(this,SelfieCameraActivity.class);startActivityForResult(i,REQ_CAMERA);}catch(Exception e){logBlocked("Internal camera open failed");Ui.toast(this,"Mandatory live selfie camera could not be opened.");}\n    }'''
+new_open='''void openCamera(){\n        try{EmbeddedSelfieCapture.open(this,new EmbeddedSelfieCapture.Callback(){\n            @Override public void onUse(File file){selfieFile=file;submit(selfieFile);}\n            @Override public void onCancel(String reason){String r=(reason==null||reason.trim().isEmpty())?"Mandatory selfie not captured":reason.trim();logBlocked(r);Ui.toast(AttendanceActivity.this,"Selfie camera: "+r);}\n        });}catch(Exception e){String r="Embedded camera open failed: "+e.getMessage();logBlocked(r);Ui.toast(this,r);}\n    }'''
+s=s.replace(old_open,new_open)
+start=s.find('    @Override protected void onActivityResult(int request,int result,Intent data){')
+if start!=-1:
+    end=s.find('\n    void submit(File photo){',start)
+    if end!=-1:s=s[:start]+s[end+1:]
 p.write_text(s,encoding='utf-8')
 
 m=root/'app/src/main/AndroidManifest.xml'
