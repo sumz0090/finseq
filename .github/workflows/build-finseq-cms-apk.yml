@@ -29,7 +29,7 @@ jobs:
         run: |
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-35' 'build-tools;35.0.0'
-      - name: Apply Attendance Phase 2 source patch
+      - name: Apply Attendance source patch
         working-directory: FINSEQ_CMS_Android
         run: python3 apply_attendance_phase2.py
       - name: Build FINSEQ CMS Debug APK
@@ -37,10 +37,10 @@ jobs:
         run: gradle --no-daemon :app:assembleDebug
       - name: Prepare APK
         run: |
-          cp FINSEQ_CMS_Android/app/build/outputs/apk/debug/app-debug.apk FINSEQ_CMS_V3_0_4_6_ROTATION_SELFIE_FIX.apk
-          ls -lh FINSEQ_CMS_V3_0_4_6_ROTATION_SELFIE_FIX.apk
+          cp FINSEQ_CMS_Android/app/build/outputs/apk/debug/app-debug.apk FINSEQ_CMS_V3_0_4_7_EMBEDDED_SELFIE.apk
+          ls -lh FINSEQ_CMS_V3_0_4_7_EMBEDDED_SELFIE.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: FINSEQ-CMS-V3.0.4.6-Rotation-Selfie-Fix
-          path: FINSEQ_CMS_V3_0_4_6_ROTATION_SELFIE_FIX.apk
+          name: FINSEQ-CMS-V3.0.4.7-Embedded-Selfie
+          path: FINSEQ_CMS_V3_0_4_7_EMBEDDED_SELFIE.apk
           if-no-files-found: error
