@@ -37,10 +37,10 @@ jobs:
         run: gradle --no-daemon :app:assembleDebug
       - name: Prepare APK
         run: |
-          cp FINSEQ_CMS_Android/app/build/outputs/apk/debug/app-debug.apk FINSEQ_CMS_V3_0_4_8_DUAL_CAMERA_FALLBACK.apk
-          ls -lh FINSEQ_CMS_V3_0_4_8_DUAL_CAMERA_FALLBACK.apk
+          cp FINSEQ_CMS_Android/app/build/outputs/apk/debug/app-debug.apk FINSEQ_CMS_V3_0_4_9_BIOMETRIC_FACE_LOCK.apk
+          ls -lh FINSEQ_CMS_V3_0_4_9_BIOMETRIC_FACE_LOCK.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: FINSEQ-CMS-V3.0.4.8-Dual-Camera-Fallback
-          path: FINSEQ_CMS_V3_0_4_8_DUAL_CAMERA_FALLBACK.apk
+          name: FINSEQ-CMS-V3.0.4.9-Biometric-Face-Lock
+          path: FINSEQ_CMS_V3_0_4_9_BIOMETRIC_FACE_LOCK.apk
           if-no-files-found: error
