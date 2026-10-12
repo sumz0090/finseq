@@ -8,7 +8,7 @@ p.write_text(s,encoding='utf-8')
 
 m=root/'app/src/main/AndroidManifest.xml'
 x=m.read_text(encoding='utf-8')
-marker='        <activity android:name=".AttendanceActivity" android:screenOrientation="portrait"/>'
-extra='''        <receiver android:name=".AttendanceReminderReceiver" android:exported="false"/>\n        <activity android:name=".AttendanceCalendarActivity" android:screenOrientation="portrait"/>\n        <activity android:name=".AttendanceLeaveActivity" android:screenOrientation="portrait"/>\n        <activity android:name=".AttendanceCorrectionActivity" android:screenOrientation="portrait"/>\n        <activity android:name=".AttendanceSalaryActivity" android:screenOrientation="portrait"/>\n'''
+marker='        <activity android:name=".AttendanceActivity"/>'
+extra='''        <receiver android:name=".AttendanceReminderReceiver" android:exported="false"/>\n        <activity android:name=".AttendanceCalendarActivity"/>\n        <activity android:name=".AttendanceLeaveActivity"/>\n        <activity android:name=".AttendanceCorrectionActivity"/>\n        <activity android:name=".AttendanceSalaryActivity"/>\n'''
 if 'AttendanceCalendarActivity' not in x:x=x.replace(marker,extra+marker)
 m.write_text(x,encoding='utf-8')
