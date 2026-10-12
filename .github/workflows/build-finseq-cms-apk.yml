@@ -37,10 +37,10 @@ jobs:
         run: gradle --no-daemon :app:assembleDebug
       - name: Prepare APK
         run: |
-          cp FINSEQ_CMS_Android/app/build/outputs/apk/debug/app-debug.apk FINSEQ_CMS_V3_0_4_0_ATTENDANCE_PHASE2.apk
-          ls -lh FINSEQ_CMS_V3_0_4_0_ATTENDANCE_PHASE2.apk
+          cp FINSEQ_CMS_Android/app/build/outputs/apk/debug/app-debug.apk FINSEQ_CMS_V3_0_4_1_MULTI_SESSION.apk
+          ls -lh FINSEQ_CMS_V3_0_4_1_MULTI_SESSION.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: FINSEQ-CMS-V3.0.4.0-Attendance-Phase2
-          path: FINSEQ_CMS_V3_0_4_0_ATTENDANCE_PHASE2.apk
+          name: FINSEQ-CMS-V3.0.4.1-Multi-Session
+          path: FINSEQ_CMS_V3_0_4_1_MULTI_SESSION.apk
           if-no-files-found: error
