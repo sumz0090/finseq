@@ -30,7 +30,20 @@ public class LockActivity extends FinseqActivity{
   BiometricPrompt.PromptInfo info=new BiometricPrompt.PromptInfo.Builder().setTitle("Unlock FINSEQ CMS").setSubtitle("Use Face, Fingerprint or your phone screen lock").setAllowedAuthenticators(AUTHENTICATORS).build();
   prompt.authenticate(info);
  }
- private void open(){if(SecurityStore.systemLock(this)){cover.setVisibility(View.VISIBLE);DeviceAuth.onUnlock(this);return;}startActivity(new Intent(this,Session.loggedIn(this)?MainActivity.class:LoginActivity.class));finish();}
+ private void open(){
+  cover.setVisibility(View.VISIBLE);
+  if(Session.loggedIn(this)){
+   startActivity(new Intent(this,AccessControl.landing(this)));
+   finish();
+   return;
+  }
+  if(SecurityStore.systemLock(this)){
+   DeviceAuth.onUnlock(this);
+   return;
+  }
+  startActivity(new Intent(this,LoginActivity.class));
+  finish();
+ }
  void signInFailed(String message,boolean loginRequired){authenticating=false;cover.setVisibility(View.GONE);if(loginRequired){new AlertDialog.Builder(this).setTitle("Reconnect screen lock sign-in").setMessage(message).setPositiveButton("Staff login",new DialogInterface.OnClickListener(){public void onClick(DialogInterface d,int which){startActivity(new Intent(LockActivity.this,LoginActivity.class));finish();}}).setNegativeButton("Retry screen lock",null).show();}else Ui.toast(this,message);}
  @Override public void onBackPressed(){moveTaskToBack(true);}
 }
