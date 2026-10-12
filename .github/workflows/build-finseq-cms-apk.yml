@@ -37,10 +37,10 @@ jobs:
         run: gradle --no-daemon :app:assembleDebug
       - name: Prepare APK
         run: |
-          cp FINSEQ_CMS_Android/app/build/outputs/apk/debug/app-debug.apk FINSEQ_CMS_V3_0_4_5_CAMERAX_SELFIE.apk
-          ls -lh FINSEQ_CMS_V3_0_4_5_CAMERAX_SELFIE.apk
+          cp FINSEQ_CMS_Android/app/build/outputs/apk/debug/app-debug.apk FINSEQ_CMS_V3_0_4_6_ROTATION_SELFIE_FIX.apk
+          ls -lh FINSEQ_CMS_V3_0_4_6_ROTATION_SELFIE_FIX.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: FINSEQ-CMS-V3.0.4.5-CameraX-Selfie
-          path: FINSEQ_CMS_V3_0_4_5_CAMERAX_SELFIE.apk
+          name: FINSEQ-CMS-V3.0.4.6-Rotation-Selfie-Fix
+          path: FINSEQ_CMS_V3_0_4_6_ROTATION_SELFIE_FIX.apk
           if-no-files-found: error
