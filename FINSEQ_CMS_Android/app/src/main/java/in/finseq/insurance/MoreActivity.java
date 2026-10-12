@@ -16,7 +16,7 @@ public class MoreActivity extends FinseqActivity {
    if(AccessControl.has(this,"renewals"))add("⏰","Renewals","Calls, WhatsApp and reminders",RenewalsActivity.class);
   }
   add("⚙","Display Settings","System Default, Light, Dark, language and font size",DisplaySettingsActivity.class);
-  body.addView(Ui.sub(this,"Version 3.0.3.0"));
+  body.addView(Ui.sub(this,"Version "+BuildConfig.VERSION_NAME+" · Build "+BuildConfig.VERSION_CODE));
   LinearLayout logout=Ui.actionRow(this,"→","Logout","Sign out from this device");logout.setOnClickListener(new View.OnClickListener(){public void onClick(View v){DeviceAuth.forget(MoreActivity.this);Session.clear(MoreActivity.this);startActivity(new Intent(MoreActivity.this,LoginActivity.class));finishAffinity();}});body.addView(logout);
   Ui.setScreen(this,root,4);
  }
