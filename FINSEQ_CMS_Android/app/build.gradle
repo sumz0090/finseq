@@ -9,6 +9,7 @@ if (keyPropertiesFile.exists()) {
 android {
     namespace 'in.finseq.insurance'
     compileSdk 35
+    buildFeatures { buildConfig true }
     defaultConfig {
         applicationId 'in.finseq.insurance'
         minSdk 26
