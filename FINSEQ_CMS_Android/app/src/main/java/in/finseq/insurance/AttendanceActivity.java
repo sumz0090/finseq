@@ -4,15 +4,12 @@ import android.Manifest;
 import android.app.*;
 import android.content.*;
 import android.content.pm.PackageManager;
-import android.content.pm.ResolveInfo;
 import android.graphics.Bitmap;
 import android.location.*;
-import android.net.Uri;
 import android.os.*;
 import android.provider.MediaStore;
 import android.util.Base64;
 import android.widget.*;
-import androidx.core.content.FileProvider;
 import org.json.*;
 import java.io.*;
 import java.util.*;
@@ -21,7 +18,7 @@ import java.util.*;
 public class AttendanceActivity extends FinseqActivity {
     static final int REQ_PERMS=7101, REQ_CAMERA=7102;
     LinearLayout root,body,card,actions; TextView state,detail,verify; Button primary;
-    JSONObject config; String pendingAction=""; Location pendingLocation; File selfieFile; Uri selfieUri;
+    JSONObject config; String pendingAction=""; Location pendingLocation; File selfieFile;
 
     @Override public void onCreate(Bundle b){super.onCreate(b);render();load();}
     @Override protected void onResume(){super.onResume();if(root!=null)load();}
@@ -92,53 +89,67 @@ public class AttendanceActivity extends FinseqActivity {
 
     void nextProof(){if(right("require_photo"))openCamera();else submit(null);}
 
+    /**
+     * Camera-only capture. Intentionally does NOT use EXTRA_OUTPUT/FileProvider.
+     * Samsung/Android 16 camera apps reliably return a fresh camera Bitmap in the result Intent
+     * for this mode. Gallery is never opened and no existing image can be selected.
+     */
     void openCamera(){
         try{
-            File dir=new File(getCacheDir(),"attendance_camera");dir.mkdirs();
-            selfieFile=File.createTempFile("selfie_",".jpg",dir);
-            selfieUri=FileProvider.getUriForFile(this,getPackageName()+".fileprovider",selfieFile);
             Intent i=new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
-            i.putExtra(MediaStore.EXTRA_OUTPUT,selfieUri);
-            i.setClipData(ClipData.newRawUri("attendance_selfie",selfieUri));
-            int grantFlags=Intent.FLAG_GRANT_WRITE_URI_PERMISSION|Intent.FLAG_GRANT_READ_URI_PERMISSION;
-            i.addFlags(grantFlags);
             i.putExtra("android.intent.extras.CAMERA_FACING",1);
             i.putExtra("android.intent.extra.USE_FRONT_CAMERA",true);
             i.putExtra("android.intent.extra.LENS_FACING_FRONT",1);
-            List<ResolveInfo> cameraApps=getPackageManager().queryIntentActivities(i,PackageManager.MATCH_DEFAULT_ONLY);
-            for(ResolveInfo ri:cameraApps){
-                if(ri!=null&&ri.activityInfo!=null) grantUriPermission(ri.activityInfo.packageName,selfieUri,grantFlags);
+            if(i.resolveActivity(getPackageManager())==null){
+                logBlocked("No camera app");
+                Ui.toast(this,"No camera app is available on this device.");
+                return;
             }
             startActivityForResult(i,REQ_CAMERA);
         }catch(Exception e){
-            logBlocked("Camera open failed");
+            logBlocked("Camera open failed: "+e.getClass().getSimpleName());
             Ui.toast(this,"Mandatory live camera could not be opened.");
         }
     }
 
-    boolean saveReturnedFreshThumbnail(Intent data){
-        if(data==null||data.getExtras()==null)return false;
-        Object obj=data.getExtras().get("data");
-        if(!(obj instanceof Bitmap)||selfieFile==null)return false;
-        try(FileOutputStream out=new FileOutputStream(selfieFile,false)){
-            return ((Bitmap)obj).compress(Bitmap.CompressFormat.JPEG,92,out);
-        }catch(Exception ignored){return false;}
+    boolean saveFreshBitmap(Bitmap bmp){
+        if(bmp==null)return false;
+        try{
+            File dir=new File(getCacheDir(),"attendance_camera");
+            if(!dir.exists()&&!dir.mkdirs())return false;
+            selfieFile=File.createTempFile("selfie_",".jpg",dir);
+            try(FileOutputStream out=new FileOutputStream(selfieFile,false)){
+                boolean ok=bmp.compress(Bitmap.CompressFormat.JPEG,90,out);
+                out.flush();
+                return ok&&selfieFile.isFile()&&selfieFile.length()>=100;
+            }
+        }catch(Exception e){return false;}
     }
 
     @Override protected void onActivityResult(int request,int result,Intent data){
         super.onActivityResult(request,result,data);
         if(request!=REQ_CAMERA)return;
-        boolean valid=selfieFile!=null&&selfieFile.isFile()&&selfieFile.length()>=100;
-        if(!valid){
-            saveReturnedFreshThumbnail(data);
-            valid=selfieFile!=null&&selfieFile.isFile()&&selfieFile.length()>=100;
-        }
-        if(selfieUri!=null){try{revokeUriPermission(selfieUri,Intent.FLAG_GRANT_WRITE_URI_PERMISSION|Intent.FLAG_GRANT_READ_URI_PERMISSION);}catch(Exception ignored){}}
-        if(!valid){
-            logBlocked("Mandatory selfie not captured");
-            Ui.toast(this,"Fresh selfie could not be saved. Please retake the live photo.");
+
+        if(result!=RESULT_OK){
+            logBlocked("Camera cancelled result="+result);
+            Ui.toast(this,"Live selfie capture was cancelled. Attendance was not recorded.");
             return;
         }
+
+        Bitmap fresh=null;
+        try{
+            if(data!=null&&data.getExtras()!=null){
+                Object obj=data.getExtras().get("data");
+                if(obj instanceof Bitmap)fresh=(Bitmap)obj;
+            }
+        }catch(Exception ignored){}
+
+        if(!saveFreshBitmap(fresh)){
+            logBlocked("Camera returned no fresh bitmap");
+            Ui.toast(this,"Camera did not return the fresh selfie. Please retry the live camera.");
+            return;
+        }
+
         new AlertDialog.Builder(this)
             .setTitle("Use this live selfie?")
             .setMessage("This fresh camera selfie will be attached to this attendance session.")
