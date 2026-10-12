@@ -1,13 +1,14 @@
 package in.finseq.insurance;
 
-import android.app.Activity;
 import android.graphics.Insets;
 import android.os.Build;
 import android.view.View;
 import android.view.WindowInsets;
 
+import androidx.activity.ComponentActivity;
+
 /** Keeps each screen clear of Android's status bar, camera cutout and navigation bar. */
-public class FinseqActivity extends Activity {
+public class FinseqActivity extends ComponentActivity {
     @Override public void setContentView(View content) {
         super.setContentView(content);
         if (Build.VERSION.SDK_INT < 35 || getApplicationInfo().targetSdkVersion < 35) return;
