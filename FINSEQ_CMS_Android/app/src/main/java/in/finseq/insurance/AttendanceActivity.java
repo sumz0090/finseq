@@ -4,6 +4,8 @@ import android.Manifest;
 import android.app.*;
 import android.content.*;
 import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
+import android.graphics.Bitmap;
 import android.location.*;
 import android.net.Uri;
 import android.os.*;
@@ -89,11 +91,61 @@ public class AttendanceActivity extends FinseqActivity {
     }
 
     void nextProof(){if(right("require_photo"))openCamera();else submit(null);}
+
     void openCamera(){
-        try{File dir=new File(getCacheDir(),"attendance_camera");dir.mkdirs();selfieFile=File.createTempFile("selfie_",".jpg",dir);selfieUri=FileProvider.getUriForFile(this,getPackageName()+".fileprovider",selfieFile);Intent i=new Intent(MediaStore.ACTION_IMAGE_CAPTURE);i.putExtra(MediaStore.EXTRA_OUTPUT,selfieUri);i.addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION|Intent.FLAG_GRANT_READ_URI_PERMISSION);i.putExtra("android.intent.extras.CAMERA_FACING",1);i.putExtra("android.intent.extra.USE_FRONT_CAMERA",true);startActivityForResult(i,REQ_CAMERA);}catch(Exception e){logBlocked("Camera open failed");Ui.toast(this,"Mandatory live camera could not be opened.");}
+        try{
+            File dir=new File(getCacheDir(),"attendance_camera");dir.mkdirs();
+            selfieFile=File.createTempFile("selfie_",".jpg",dir);
+            selfieUri=FileProvider.getUriForFile(this,getPackageName()+".fileprovider",selfieFile);
+            Intent i=new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+            i.putExtra(MediaStore.EXTRA_OUTPUT,selfieUri);
+            i.setClipData(ClipData.newRawUri("attendance_selfie",selfieUri));
+            int grantFlags=Intent.FLAG_GRANT_WRITE_URI_PERMISSION|Intent.FLAG_GRANT_READ_URI_PERMISSION;
+            i.addFlags(grantFlags);
+            i.putExtra("android.intent.extras.CAMERA_FACING",1);
+            i.putExtra("android.intent.extra.USE_FRONT_CAMERA",true);
+            i.putExtra("android.intent.extra.LENS_FACING_FRONT",1);
+            List<ResolveInfo> cameraApps=getPackageManager().queryIntentActivities(i,PackageManager.MATCH_DEFAULT_ONLY);
+            for(ResolveInfo ri:cameraApps){
+                if(ri!=null&&ri.activityInfo!=null) grantUriPermission(ri.activityInfo.packageName,selfieUri,grantFlags);
+            }
+            startActivityForResult(i,REQ_CAMERA);
+        }catch(Exception e){
+            logBlocked("Camera open failed");
+            Ui.toast(this,"Mandatory live camera could not be opened.");
+        }
     }
 
-    @Override protected void onActivityResult(int request,int result,Intent data){super.onActivityResult(request,result,data);if(request!=REQ_CAMERA)return;if(result!=RESULT_OK||selfieFile==null||!selfieFile.isFile()||selfieFile.length()<100){logBlocked("Mandatory selfie not captured");Ui.toast(this,"Selfie is mandatory. Gallery/upload is not allowed.");return;}new AlertDialog.Builder(this).setTitle("Use this live selfie?").setMessage("This fresh selfie will be attached to this attendance session.").setNegativeButton("Retake",(d,w)->openCamera()).setPositiveButton("Use Photo",(d,w)->submit(selfieFile)).show();}
+    boolean saveReturnedFreshThumbnail(Intent data){
+        if(data==null||data.getExtras()==null)return false;
+        Object obj=data.getExtras().get("data");
+        if(!(obj instanceof Bitmap)||selfieFile==null)return false;
+        try(FileOutputStream out=new FileOutputStream(selfieFile,false)){
+            return ((Bitmap)obj).compress(Bitmap.CompressFormat.JPEG,92,out);
+        }catch(Exception ignored){return false;}
+    }
+
+    @Override protected void onActivityResult(int request,int result,Intent data){
+        super.onActivityResult(request,result,data);
+        if(request!=REQ_CAMERA)return;
+        boolean valid=selfieFile!=null&&selfieFile.isFile()&&selfieFile.length()>=100;
+        if(!valid){
+            saveReturnedFreshThumbnail(data);
+            valid=selfieFile!=null&&selfieFile.isFile()&&selfieFile.length()>=100;
+        }
+        if(selfieUri!=null){try{revokeUriPermission(selfieUri,Intent.FLAG_GRANT_WRITE_URI_PERMISSION|Intent.FLAG_GRANT_READ_URI_PERMISSION);}catch(Exception ignored){}}
+        if(!valid){
+            logBlocked("Mandatory selfie not captured");
+            Ui.toast(this,"Fresh selfie could not be saved. Please retake the live photo.");
+            return;
+        }
+        new AlertDialog.Builder(this)
+            .setTitle("Use this live selfie?")
+            .setMessage("This fresh camera selfie will be attached to this attendance session.")
+            .setNegativeButton("Retake",(d,w)->openCamera())
+            .setPositiveButton("Use Photo",(d,w)->submit(selfieFile))
+            .show();
+    }
 
     void submit(File photo){
         if(primary!=null){primary.setEnabled(false);primary.setText("Recording attendance…");}
