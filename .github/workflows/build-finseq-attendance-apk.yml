@@ -36,15 +36,18 @@ jobs:
               raise SystemExit('Expected JSONArray method not found')
           p.write_text(s.replace(old,new,1),encoding='utf-8')
           PY
+      - name: Apply liveness anti-spoof patch
+        working-directory: FINSEQ_Attendance_Android
+        run: python3 apply_liveness_v1_1.py
       - name: Build FINSEQ Attendance APK
         working-directory: FINSEQ_Attendance_Android
         run: gradle --no-daemon :app:assembleDebug
       - name: Prepare APK
         run: |
-          cp FINSEQ_Attendance_Android/app/build/outputs/apk/debug/app-debug.apk FINSEQ_ATTENDANCE_V1_0_0.apk
-          ls -lh FINSEQ_ATTENDANCE_V1_0_0.apk
+          cp FINSEQ_Attendance_Android/app/build/outputs/apk/debug/app-debug.apk FINSEQ_ATTENDANCE_V1_1_0_LIVENESS.apk
+          ls -lh FINSEQ_ATTENDANCE_V1_1_0_LIVENESS.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: FINSEQ-Attendance-V1.0.0
-          path: FINSEQ_ATTENDANCE_V1_0_0.apk
+          name: FINSEQ-Attendance-V1.1.0-Liveness
+          path: FINSEQ_ATTENDANCE_V1_1_0_LIVENESS.apk
           if-no-files-found: error
