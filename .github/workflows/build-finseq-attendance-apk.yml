@@ -35,16 +35,14 @@ jobs:
           from pathlib import Path
           from PIL import Image, ImageFile
           ImageFile.LOAD_TRUNCATED_IMAGES=True
-          pairs=[
-            ('finseq_company_logo_transparent_source.png','finseq_company_logo_transparent.png'),
-            ('finseq_icon_master_source.png','finseq_icon_master.png'),
-          ]
           root=Path('FINSEQ_Attendance_Android/app/src/main/res/drawable')
-          for src,dst in pairs:
+          for src,dst in [
+              ('finseq_company_logo_transparent_source.png','finseq_company_logo_transparent.png'),
+              ('finseq_icon_master_source.png','finseq_icon_master.png'),
+          ]:
               im=Image.open(root/src).convert('RGBA')
               im.save(root/dst,format='PNG',optimize=True)
-              check=Image.open(root/dst)
-              check.verify()
+              check=Image.open(root/dst); check.verify()
               print(dst, 'sanitized OK')
           (root/'finseq_company_logo_transparent_source.png').unlink()
           (root/'finseq_icon_master_source.png').unlink()
@@ -69,7 +67,7 @@ jobs:
       - name: Apply FaceNet recognition and consensus
         working-directory: FINSEQ_Attendance_Android
         run: python3 apply_v1_2_recognition.py
-      - name: Apply enrollment operator access
+      - name: Apply enrollment operator compatibility
         working-directory: FINSEQ_Attendance_Android
         run: python3 apply_v1_2_operator.py
       - name: Apply automatic face enrollment
@@ -87,6 +85,32 @@ jobs:
       - name: Apply stability, rotation and state bug fixes
         working-directory: FINSEQ_Attendance_Android
         run: python3 apply_v1_3_2_stability.py
+      - name: Apply v1.4 staff-specific PIN enrollment
+        working-directory: FINSEQ_Attendance_Android
+        run: python3 apply_v1_4_pin_enrollment.py
+      - name: Verify v1.4 source invariants
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('FINSEQ_Attendance_Android/app/src/main/java/in/finseq/attendance/MainActivity.java')
+          s=p.read_text(encoding='utf-8')
+          checks={
+            'PIN endpoint':'/api/attendance/secure/pin-verify' in s,
+            '6-digit PIN UI':'6-digit Enrollment PIN' in s,
+            'FaceNet consensus':'CONSENSUS_FRAMES=4' in s,
+            'second-best margin':'MIN_SECOND_BEST_MARGIN=0.08' in s,
+            'dynamic version':'BuildConfig.VERSION_NAME' in s,
+            'persistent cooldown':'last_person_id' in s and 'last_submit_at' in s,
+            'enrollment cancel guard':'enrollmentActive' in s and 'activeEnrollmentUserId' in s,
+            'fresh profile sync':'Refreshing authorized face profiles' in s,
+            'stale GPS rejection':'120000L' in s,
+            'front camera required':'LENS_FACING_FRONT' in s,
+            'EXIF rotation':'applyExifRotation' in s,
+          }
+          bad=[k for k,v in checks.items() if not v]
+          for k,v in checks.items(): print(k, 'PASS' if v else 'FAIL')
+          if bad: raise SystemExit('Source invariant failures: '+', '.join(bad))
+          PY
       - name: Build FINSEQ Attendance APK
         working-directory: FINSEQ_Attendance_Android
         run: gradle --no-daemon :app:assembleDebug
@@ -108,9 +132,7 @@ jobs:
               missing=required-names
               if missing: raise SystemExit(f'Missing packaged resources: {missing}')
               for name in ['res/drawable/finseq_icon_master.png','res/drawable/finseq_company_logo_transparent.png']:
-                  im=Image.open(io.BytesIO(z.read(name)))
-                  im.verify()
-                  print(name,'PNG verify PASS')
+                  im=Image.open(io.BytesIO(z.read(name))); im.verify(); print(name,'PNG verify PASS')
           PY
           "$ANDROID_HOME/build-tools/35.0.0/aapt2" dump xmltree "$APK" --file AndroidManifest.xml > /tmp/manifest.txt
           grep -q 'android:icon' /tmp/manifest.txt
@@ -120,10 +142,10 @@ jobs:
           echo 'Manifest launcher icon + rotation verification PASS'
       - name: Prepare APK
         run: |
-          cp FINSEQ_Attendance_Android/app/build/outputs/apk/debug/app-debug.apk FINSEQ_ATTENDANCE_V1_3_3_VERIFIED_ICON_ROTATION.apk
-          ls -lh FINSEQ_ATTENDANCE_V1_3_3_VERIFIED_ICON_ROTATION.apk
+          cp FINSEQ_Attendance_Android/app/build/outputs/apk/debug/app-debug.apk FINSEQ_ATTENDANCE_V1_4_0_PRODUCTION_CANDIDATE.apk
+          ls -lh FINSEQ_ATTENDANCE_V1_4_0_PRODUCTION_CANDIDATE.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: FINSEQ-Attendance-V1.3.3-Verified-Icon-Rotation
-          path: FINSEQ_ATTENDANCE_V1_3_3_VERIFIED_ICON_ROTATION.apk
+          name: FINSEQ-Attendance-V1.4.0-Production-Candidate
+          path: FINSEQ_ATTENDANCE_V1_4_0_PRODUCTION_CANDIDATE.apk
           if-no-files-found: error
