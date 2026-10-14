@@ -14,6 +14,12 @@ def replace_method(src,signature,replacement):
             if depth==0:return src[:start]+replacement+src[i+1:]
     raise SystemExit('Unclosed '+signature)
 
+# Reliable FINSEQ branding: use the clean vector shield, not the previously corrupt PNG asset.
+s=replace_method(s,'    ImageView finseqLogo(int height){','''    ImageView finseqLogo(int height){
+        ImageView v=new ImageView(this);v.setImageResource(getResources().getIdentifier("ic_finseq_shield","drawable",getPackageName()));v.setAdjustViewBounds(true);v.setScaleType(ImageView.ScaleType.FIT_CENTER);v.setLayoutParams(new LinearLayout.LayoutParams(-1,dp(height)));return v;
+    }''')
+s=s.replace('TextView t=text("Attendance",31,true);','TextView t=text("FINSEQ Attendance",31,true);')
+
 s=s.replace('＋ Face Enrollment (Authorized User)','＋ Face Enrollment · 6-Digit PIN')
 s=s.replace('👤＋\nFace Enrollment\nAuthorized User','👤＋\nFace Enrollment\n6-Digit PIN')
 
@@ -37,8 +43,7 @@ replacement='''    void promptAdminForEnrollment(){
 s=replace_method(s,'    void promptAdminForEnrollment(){',replacement)
 
 # Keep chooseEmployee for backward compatibility, but it is no longer used by the v1.4 PIN flow.
-# Make the enrollment instructions explicit that the PIN is employee-specific.
 s=s.replace('Automatic enrollment\\nLook straight, then slowly turn left and right','Automatic enrollment\\nEmployee verified by Admin PIN · Look straight, then slowly turn left and right')
 
 p.write_text(s,encoding='utf-8')
-print('FINSEQ Attendance v1.4 staff-specific PIN enrollment patch applied')
+print('FINSEQ Attendance v1.4 staff-specific PIN enrollment + clean branding patch applied')
