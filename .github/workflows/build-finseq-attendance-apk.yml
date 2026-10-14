@@ -30,6 +30,9 @@ jobs:
           test -s FINSEQ_Attendance_Android/app/src/main/res/drawable/ic_launcher_foreground.xml
           test -s FINSEQ_Attendance_Android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml
           test -s FINSEQ_Attendance_Android/app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml
+          grep -q 'android:icon="@mipmap/ic_launcher"' FINSEQ_Attendance_Android/app/src/main/AndroidManifest.xml
+          grep -q 'android:roundIcon="@mipmap/ic_launcher_round"' FINSEQ_Attendance_Android/app/src/main/AndroidManifest.xml
+          grep -q 'android:screenOrientation="fullSensor"' FINSEQ_Attendance_Android/app/src/main/AndroidManifest.xml
           mkdir -p FINSEQ_Attendance_Android/app/src/main/assets
           curl -L --fail --retry 3 -o FINSEQ_Attendance_Android/app/src/main/assets/facenet.tflite https://raw.githubusercontent.com/shubham0204/FaceRecognition_With_FaceNet_Android/master/app/src/main/assets/facenet.tflite
           test -s FINSEQ_Attendance_Android/app/src/main/assets/facenet.tflite
@@ -98,7 +101,7 @@ jobs:
       - name: Build FINSEQ Attendance APK
         working-directory: FINSEQ_Attendance_Android
         run: gradle --no-daemon :app:assembleDebug
-      - name: Verify packaged launcher resources, manifest and orientation
+      - name: Verify packaged launcher resources and manifest attributes
         run: |
           APK=FINSEQ_Attendance_Android/app/build/outputs/apk/debug/app-debug.apk
           python3 - <<'PY'
@@ -121,10 +124,10 @@ jobs:
           PY
           "$ANDROID_HOME/build-tools/35.0.0/aapt2" dump xmltree "$APK" --file AndroidManifest.xml > /tmp/manifest.txt
           grep -q 'android:icon' /tmp/manifest.txt
-          grep -q 'ic_launcher' /tmp/manifest.txt
           grep -q 'android:roundIcon' /tmp/manifest.txt
-          grep -q 'fullSensor' /tmp/manifest.txt
-          echo 'Manifest adaptive launcher icon + rotation verification PASS'
+          grep -q 'android:screenOrientation' /tmp/manifest.txt
+          grep -q 'android:configChanges' /tmp/manifest.txt
+          echo 'Packaged manifest icon + rotation attributes PASS'
       - name: Prepare APK
         run: |
           cp FINSEQ_Attendance_Android/app/build/outputs/apk/debug/app-debug.apk FINSEQ_ATTENDANCE_V1_4_0_PRODUCTION_CANDIDATE.apk
