@@ -24,6 +24,18 @@ jobs:
         run: |
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-35' 'build-tools;35.0.0'
+      - name: Apply compile-safe JSON patch
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('FINSEQ_Attendance_Android/app/src/main/java/in/finseq/attendance/MainActivity.java')
+          s=p.read_text(encoding='utf-8')
+          old='static JSONArray json(double[]v){JSONArray a=new JSONArray();for(double x:v)a.put(x);return a;}'
+          new='static JSONArray json(double[]v){JSONArray a=new JSONArray();for(double x:v){try{a.put(x);}catch(JSONException e){a.put(0);}}return a;}'
+          if old not in s:
+              raise SystemExit('Expected JSONArray method not found')
+          p.write_text(s.replace(old,new,1),encoding='utf-8')
+          PY
       - name: Build FINSEQ Attendance APK
         working-directory: FINSEQ_Attendance_Android
         run: gradle --no-daemon :app:assembleDebug
