@@ -3,8 +3,17 @@
     <uses-permission android:name="android.permission.CAMERA"/>
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <uses-feature android:name="android.hardware.camera.front" android:required="false"/>
-    <application android:theme="@style/AppTheme" android:label="FINSEQ Attendance" android:usesCleartextTraffic="false">
-        <activity android:name=".MainActivity" android:screenOrientation="portrait" android:exported="true">
+    <application
+        android:theme="@style/AppTheme"
+        android:label="FINSEQ Attendance"
+        android:icon="@drawable/finseq_icon_master"
+        android:roundIcon="@drawable/finseq_icon_master"
+        android:usesCleartextTraffic="false">
+        <activity
+            android:name=".MainActivity"
+            android:screenOrientation="fullSensor"
+            android:configChanges="orientation|screenSize|keyboardHidden"
+            android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
