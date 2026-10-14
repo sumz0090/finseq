@@ -24,7 +24,7 @@ jobs:
         run: |
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-35' 'build-tools;35.0.0'
-      - name: Prepare FINSEQ logo, icon and FaceNet model
+      - name: Prepare FINSEQ logo, adaptive icon and FaceNet model
         run: |
           mkdir -p FINSEQ_Attendance_Android/app/src/main/res/drawable
           mkdir -p FINSEQ_Attendance_Android/app/src/main/assets
@@ -67,15 +67,18 @@ jobs:
       - name: Apply approved premium UI
         working-directory: FINSEQ_Attendance_Android
         run: python3 apply_v1_3_premium_ui.py
+      - name: Apply stability, rotation and state bug fixes
+        working-directory: FINSEQ_Attendance_Android
+        run: python3 apply_v1_3_2_stability.py
       - name: Build FINSEQ Attendance APK
         working-directory: FINSEQ_Attendance_Android
         run: gradle --no-daemon :app:assembleDebug
       - name: Prepare APK
         run: |
-          cp FINSEQ_Attendance_Android/app/build/outputs/apk/debug/app-debug.apk FINSEQ_ATTENDANCE_V1_3_1_ICON_ROTATION_FIX.apk
-          ls -lh FINSEQ_ATTENDANCE_V1_3_1_ICON_ROTATION_FIX.apk
+          cp FINSEQ_Attendance_Android/app/build/outputs/apk/debug/app-debug.apk FINSEQ_ATTENDANCE_V1_3_2_STABILITY.apk
+          ls -lh FINSEQ_ATTENDANCE_V1_3_2_STABILITY.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: FINSEQ-Attendance-V1.3.1-Icon-Rotation-Fix
-          path: FINSEQ_ATTENDANCE_V1_3_1_ICON_ROTATION_FIX.apk
+          name: FINSEQ-Attendance-V1.3.2-Stability
+          path: FINSEQ_ATTENDANCE_V1_3_2_STABILITY.apk
           if-no-files-found: error
