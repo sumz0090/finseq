@@ -24,14 +24,31 @@ jobs:
         run: |
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-35' 'build-tools;35.0.0'
-      - name: Prepare FINSEQ logo, adaptive icon and FaceNet model
+      - name: Prepare and sanitize FINSEQ logo, adaptive icon and FaceNet model
         run: |
           mkdir -p FINSEQ_Attendance_Android/app/src/main/res/drawable
           mkdir -p FINSEQ_Attendance_Android/app/src/main/assets
-          cp FINSEQ_CMS_Android/app/src/main/res/drawable/finseq_company_logo_transparent.png FINSEQ_Attendance_Android/app/src/main/res/drawable/
-          cp FINSEQ_CMS_Android/app/src/main/res/drawable/finseq_icon_master.png FINSEQ_Attendance_Android/app/src/main/res/drawable/
-          test -s FINSEQ_Attendance_Android/app/src/main/res/drawable/finseq_company_logo_transparent.png
-          test -s FINSEQ_Attendance_Android/app/src/main/res/drawable/finseq_icon_master.png
+          cp FINSEQ_CMS_Android/app/src/main/res/drawable/finseq_company_logo_transparent.png FINSEQ_Attendance_Android/app/src/main/res/drawable/finseq_company_logo_transparent_source.png
+          cp FINSEQ_CMS_Android/app/src/main/res/drawable/finseq_icon_master.png FINSEQ_Attendance_Android/app/src/main/res/drawable/finseq_icon_master_source.png
+          python3 -m pip install --quiet pillow
+          python3 - <<'PY'
+          from pathlib import Path
+          from PIL import Image, ImageFile
+          ImageFile.LOAD_TRUNCATED_IMAGES=True
+          pairs=[
+            ('finseq_company_logo_transparent_source.png','finseq_company_logo_transparent.png'),
+            ('finseq_icon_master_source.png','finseq_icon_master.png'),
+          ]
+          root=Path('FINSEQ_Attendance_Android/app/src/main/res/drawable')
+          for src,dst in pairs:
+              im=Image.open(root/src).convert('RGBA')
+              im.save(root/dst,format='PNG',optimize=True)
+              check=Image.open(root/dst)
+              check.verify()
+              print(dst, 'sanitized OK')
+          (root/'finseq_company_logo_transparent_source.png').unlink()
+          (root/'finseq_icon_master_source.png').unlink()
+          PY
           curl -L --fail --retry 3 -o FINSEQ_Attendance_Android/app/src/main/assets/facenet.tflite https://raw.githubusercontent.com/shubham0204/FaceRecognition_With_FaceNet_Android/master/app/src/main/assets/facenet.tflite
           test -s FINSEQ_Attendance_Android/app/src/main/assets/facenet.tflite
       - name: Apply compile-safe JSON patch
@@ -73,12 +90,40 @@ jobs:
       - name: Build FINSEQ Attendance APK
         working-directory: FINSEQ_Attendance_Android
         run: gradle --no-daemon :app:assembleDebug
+      - name: Verify packaged icon, manifest and orientation
+        run: |
+          APK=FINSEQ_Attendance_Android/app/build/outputs/apk/debug/app-debug.apk
+          python3 - <<'PY'
+          import io, zipfile
+          from PIL import Image
+          apk='FINSEQ_Attendance_Android/app/build/outputs/apk/debug/app-debug.apk'
+          with zipfile.ZipFile(apk) as z:
+              names=set(z.namelist())
+              required={
+                'res/drawable/finseq_icon_master.png',
+                'res/drawable/finseq_company_logo_transparent.png',
+                'res/mipmap-anydpi-v26/ic_launcher.xml',
+                'res/mipmap-anydpi-v26/ic_launcher_round.xml',
+              }
+              missing=required-names
+              if missing: raise SystemExit(f'Missing packaged resources: {missing}')
+              for name in ['res/drawable/finseq_icon_master.png','res/drawable/finseq_company_logo_transparent.png']:
+                  im=Image.open(io.BytesIO(z.read(name)))
+                  im.verify()
+                  print(name,'PNG verify PASS')
+          PY
+          "$ANDROID_HOME/build-tools/35.0.0/aapt2" dump xmltree "$APK" --file AndroidManifest.xml > /tmp/manifest.txt
+          grep -q 'android:icon' /tmp/manifest.txt
+          grep -q 'ic_launcher' /tmp/manifest.txt
+          grep -q 'android:roundIcon' /tmp/manifest.txt
+          grep -q 'fullSensor' /tmp/manifest.txt
+          echo 'Manifest launcher icon + rotation verification PASS'
       - name: Prepare APK
         run: |
-          cp FINSEQ_Attendance_Android/app/build/outputs/apk/debug/app-debug.apk FINSEQ_ATTENDANCE_V1_3_2_STABILITY.apk
-          ls -lh FINSEQ_ATTENDANCE_V1_3_2_STABILITY.apk
+          cp FINSEQ_Attendance_Android/app/build/outputs/apk/debug/app-debug.apk FINSEQ_ATTENDANCE_V1_3_3_VERIFIED_ICON_ROTATION.apk
+          ls -lh FINSEQ_ATTENDANCE_V1_3_3_VERIFIED_ICON_ROTATION.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: FINSEQ-Attendance-V1.3.2-Stability
-          path: FINSEQ_ATTENDANCE_V1_3_2_STABILITY.apk
+          name: FINSEQ-Attendance-V1.3.3-Verified-Icon-Rotation
+          path: FINSEQ_ATTENDANCE_V1_3_3_VERIFIED_ICON_ROTATION.apk
           if-no-files-found: error
