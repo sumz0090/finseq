@@ -61,15 +61,18 @@ jobs:
       - name: Apply FINSEQ branding and welcome
         working-directory: FINSEQ_Attendance_Android
         run: python3 apply_v1_2_branding.py
+      - name: Apply approved premium UI
+        working-directory: FINSEQ_Attendance_Android
+        run: python3 apply_v1_3_premium_ui.py
       - name: Build FINSEQ Attendance APK
         working-directory: FINSEQ_Attendance_Android
         run: gradle --no-daemon :app:assembleDebug
       - name: Prepare APK
         run: |
-          cp FINSEQ_Attendance_Android/app/build/outputs/apk/debug/app-debug.apk FINSEQ_ATTENDANCE_V1_2_0_FACENET_SECURE.apk
-          ls -lh FINSEQ_ATTENDANCE_V1_2_0_FACENET_SECURE.apk
+          cp FINSEQ_Attendance_Android/app/build/outputs/apk/debug/app-debug.apk FINSEQ_ATTENDANCE_V1_3_0_PREMIUM.apk
+          ls -lh FINSEQ_ATTENDANCE_V1_3_0_PREMIUM.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: FINSEQ-Attendance-V1.2.0-FaceNet-Secure
-          path: FINSEQ_ATTENDANCE_V1_2_0_FACENET_SECURE.apk
+          name: FINSEQ-Attendance-V1.3.0-Premium
+          path: FINSEQ_ATTENDANCE_V1_3_0_PREMIUM.apk
           if-no-files-found: error
