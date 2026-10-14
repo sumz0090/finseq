@@ -24,11 +24,14 @@ jobs:
         run: |
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-35' 'build-tools;35.0.0'
-      - name: Prepare FINSEQ logo and FaceNet model
+      - name: Prepare FINSEQ logo, icon and FaceNet model
         run: |
           mkdir -p FINSEQ_Attendance_Android/app/src/main/res/drawable
           mkdir -p FINSEQ_Attendance_Android/app/src/main/assets
           cp FINSEQ_CMS_Android/app/src/main/res/drawable/finseq_company_logo_transparent.png FINSEQ_Attendance_Android/app/src/main/res/drawable/
+          cp FINSEQ_CMS_Android/app/src/main/res/drawable/finseq_icon_master.png FINSEQ_Attendance_Android/app/src/main/res/drawable/
+          test -s FINSEQ_Attendance_Android/app/src/main/res/drawable/finseq_company_logo_transparent.png
+          test -s FINSEQ_Attendance_Android/app/src/main/res/drawable/finseq_icon_master.png
           curl -L --fail --retry 3 -o FINSEQ_Attendance_Android/app/src/main/assets/facenet.tflite https://raw.githubusercontent.com/shubham0204/FaceRecognition_With_FaceNet_Android/master/app/src/main/assets/facenet.tflite
           test -s FINSEQ_Attendance_Android/app/src/main/assets/facenet.tflite
       - name: Apply compile-safe JSON patch
@@ -69,10 +72,10 @@ jobs:
         run: gradle --no-daemon :app:assembleDebug
       - name: Prepare APK
         run: |
-          cp FINSEQ_Attendance_Android/app/build/outputs/apk/debug/app-debug.apk FINSEQ_ATTENDANCE_V1_3_0_PREMIUM.apk
-          ls -lh FINSEQ_ATTENDANCE_V1_3_0_PREMIUM.apk
+          cp FINSEQ_Attendance_Android/app/build/outputs/apk/debug/app-debug.apk FINSEQ_ATTENDANCE_V1_3_1_ICON_ROTATION_FIX.apk
+          ls -lh FINSEQ_ATTENDANCE_V1_3_1_ICON_ROTATION_FIX.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: FINSEQ-Attendance-V1.3.0-Premium
-          path: FINSEQ_ATTENDANCE_V1_3_0_PREMIUM.apk
+          name: FINSEQ-Attendance-V1.3.1-Icon-Rotation-Fix
+          path: FINSEQ_ATTENDANCE_V1_3_1_ICON_ROTATION_FIX.apk
           if-no-files-found: error
