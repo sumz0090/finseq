@@ -24,6 +24,13 @@ jobs:
         run: |
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-35' 'build-tools;35.0.0'
+      - name: Prepare FINSEQ logo and FaceNet model
+        run: |
+          mkdir -p FINSEQ_Attendance_Android/app/src/main/res/drawable
+          mkdir -p FINSEQ_Attendance_Android/app/src/main/assets
+          cp FINSEQ_CMS_Android/app/src/main/res/drawable/finseq_company_logo_transparent.png FINSEQ_Attendance_Android/app/src/main/res/drawable/
+          curl -L --fail --retry 3 -o FINSEQ_Attendance_Android/app/src/main/assets/facenet.tflite https://raw.githubusercontent.com/shubham0204/FaceRecognition_With_FaceNet_Android/master/app/src/main/assets/facenet.tflite
+          test -s FINSEQ_Attendance_Android/app/src/main/assets/facenet.tflite
       - name: Apply compile-safe JSON patch
         run: |
           python3 - <<'PY'
@@ -39,15 +46,27 @@ jobs:
       - name: Apply liveness anti-spoof patch
         working-directory: FINSEQ_Attendance_Android
         run: python3 apply_liveness_v1_1.py
+      - name: Apply FaceNet recognition and consensus
+        working-directory: FINSEQ_Attendance_Android
+        run: python3 apply_v1_2_recognition.py
+      - name: Apply enrollment operator access
+        working-directory: FINSEQ_Attendance_Android
+        run: python3 apply_v1_2_operator.py
+      - name: Apply automatic face enrollment
+        working-directory: FINSEQ_Attendance_Android
+        run: python3 apply_v1_2_auto_enroll.py
+      - name: Apply FINSEQ branding and welcome
+        working-directory: FINSEQ_Attendance_Android
+        run: python3 apply_v1_2_branding.py
       - name: Build FINSEQ Attendance APK
         working-directory: FINSEQ_Attendance_Android
         run: gradle --no-daemon :app:assembleDebug
       - name: Prepare APK
         run: |
-          cp FINSEQ_Attendance_Android/app/build/outputs/apk/debug/app-debug.apk FINSEQ_ATTENDANCE_V1_1_0_LIVENESS.apk
-          ls -lh FINSEQ_ATTENDANCE_V1_1_0_LIVENESS.apk
+          cp FINSEQ_Attendance_Android/app/build/outputs/apk/debug/app-debug.apk FINSEQ_ATTENDANCE_V1_2_0_FACENET_SECURE.apk
+          ls -lh FINSEQ_ATTENDANCE_V1_2_0_FACENET_SECURE.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: FINSEQ-Attendance-V1.1.0-Liveness
-          path: FINSEQ_ATTENDANCE_V1_1_0_LIVENESS.apk
+          name: FINSEQ-Attendance-V1.2.0-FaceNet-Secure
+          path: FINSEQ_ATTENDANCE_V1_2_0_FACENET_SECURE.apk
           if-no-files-found: error
