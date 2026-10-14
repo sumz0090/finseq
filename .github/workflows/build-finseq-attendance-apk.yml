@@ -55,6 +55,9 @@ jobs:
       - name: Apply automatic face enrollment
         working-directory: FINSEQ_Attendance_Android
         run: python3 apply_v1_2_auto_enroll.py
+      - name: Apply secure FaceNet endpoints
+        working-directory: FINSEQ_Attendance_Android
+        run: python3 apply_v1_2_secure_routes.py
       - name: Apply FINSEQ branding and welcome
         working-directory: FINSEQ_Attendance_Android
         run: python3 apply_v1_2_branding.py
