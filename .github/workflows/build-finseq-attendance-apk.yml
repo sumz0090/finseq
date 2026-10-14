@@ -74,25 +74,36 @@ jobs:
       - name: Apply v1.4 staff-specific PIN enrollment and clean vector branding
         working-directory: FINSEQ_Attendance_Android
         run: python3 apply_v1_4_pin_enrollment.py
-      - name: Verify v1.4 source invariants
+      - name: Apply v1.4.1 continuous fast face engine
+        working-directory: FINSEQ_Attendance_Android
+        run: python3 apply_v1_4_1_fast_engine.py
+      - name: Verify v1.4.1 source invariants
         run: |
           python3 - <<'PY'
           from pathlib import Path
           p=Path('FINSEQ_Attendance_Android/app/src/main/java/in/finseq/attendance/MainActivity.java')
           s=p.read_text(encoding='utf-8')
+          kiosk=s[s.find('void showKiosk(){'):s.find('void scheduleScan(long delay){')]
           checks={
             'PIN endpoint':'/api/attendance/secure/pin-verify' in s,
             '6-digit PIN UI':'6-digit Enrollment PIN' in s,
             'clean vector logo':'ic_finseq_shield' in s,
-            'FaceNet consensus':'CONSENSUS_FRAMES=4' in s,
-            'second-best margin':'MIN_SECOND_BEST_MARGIN=0.08' in s,
+            'FaceNet engine':'FaceEmbeddingModel embedder' in s,
+            'ImageAnalysis':'ImageAnalysis imageAnalysis' in s and 'setAnalyzer(analysisIo,this::analyzeFastFrame)' in s,
+            'keep-only-latest':'STRATEGY_KEEP_ONLY_LATEST' in s,
+            'live 4-frame consensus':'fastWindow.size()<4' in s and 'consensus_frames",4' in s,
+            'second-best margin':'MIN_SECOND_BEST_MARGIN' in s,
+            'passive live motion':'live_multiframe_motion' in s,
+            'blink fallback':'live_blink' in s,
+            'compressed proof':'encodeProof(crop)' in s,
+            'kiosk no scheduled still capture':'scheduleScan(' not in kiosk,
             'dynamic version':'BuildConfig.VERSION_NAME' in s,
             'persistent cooldown':'last_person_id' in s and 'last_submit_at' in s,
-            'enrollment cancel guard':'enrollmentActive' in s and 'activeEnrollmentUserId' in s,
+            'enrollment cancel guard':'enrollmentActive' in s,
             'fresh profile sync':'Refreshing authorized face profiles' in s,
             'stale GPS rejection':'120000L' in s,
             'front camera required':'LENS_FACING_FRONT' in s,
-            'EXIF rotation':'applyExifRotation' in s,
+            'rotation analysis update':'imageAnalysis.setTargetRotation(rotation)' in s,
           }
           bad=[k for k,v in checks.items() if not v]
           for k,v in checks.items(): print(k, 'PASS' if v else 'FAIL')
@@ -130,10 +141,10 @@ jobs:
           echo 'Packaged manifest icon + rotation attributes PASS'
       - name: Prepare APK
         run: |
-          cp FINSEQ_Attendance_Android/app/build/outputs/apk/debug/app-debug.apk FINSEQ_ATTENDANCE_V1_4_0_PRODUCTION_CANDIDATE.apk
-          ls -lh FINSEQ_ATTENDANCE_V1_4_0_PRODUCTION_CANDIDATE.apk
+          cp FINSEQ_Attendance_Android/app/build/outputs/apk/debug/app-debug.apk FINSEQ_ATTENDANCE_V1_4_1_FAST_ENGINE.apk
+          ls -lh FINSEQ_ATTENDANCE_V1_4_1_FAST_ENGINE.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: FINSEQ-Attendance-V1.4.0-Production-Candidate
-          path: FINSEQ_ATTENDANCE_V1_4_0_PRODUCTION_CANDIDATE.apk
+          name: FINSEQ-Attendance-V1.4.1-Fast-Engine
+          path: FINSEQ_ATTENDANCE_V1_4_1_FAST_ENGINE.apk
           if-no-files-found: error
