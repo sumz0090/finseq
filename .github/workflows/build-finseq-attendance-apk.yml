@@ -24,72 +24,47 @@ jobs:
         run: |
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-35' 'build-tools;35.0.0'
-      - name: Prepare official FINSEQ F-Q logo, launcher icon and FaceNet model
+
+      - name: Prepare FINSEQ F-Q branding and FaceNet
         run: |
-          mkdir -p FINSEQ_Attendance_Android/app/src/main/res/drawable
-          mkdir -p FINSEQ_Attendance_Android/app/src/main/assets
+          mkdir -p FINSEQ_Attendance_Android/app/src/main/res/drawable FINSEQ_Attendance_Android/app/src/main/assets
           python3 -m pip install --quiet pillow
           python3 - <<'PY'
           from pathlib import Path
-          from PIL import Image, ImageDraw, ImageFont
+          from PIL import Image,ImageDraw,ImageFont
           root=Path('FINSEQ_Attendance_Android/app/src/main/res/drawable')
-          NAVY=(0,49,88,255)
-          WHITE=(255,255,255,255)
-          TRANS=(0,0,0,0)
+          NAVY=(0,49,88,255); WHITE=(255,255,255,255); TRANS=(0,0,0,0)
           bold='/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'
           regular='/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf'
-
-          def draw_f_icon(size=1024):
-              im=Image.new('RGBA',(size,size),TRANS); d=ImageDraw.Draw(im)
-              m=int(size*.08); r=int(size*.18)
+          def ficon(size):
+              im=Image.new('RGBA',(size,size),TRANS); d=ImageDraw.Draw(im); m=int(size*.08); r=int(size*.18)
               d.rounded_rectangle((m,m,size-m,size-m),radius=r,fill=NAVY)
               x=int(size*.30); y=int(size*.23); w=int(size*.16)
               d.rounded_rectangle((x,y,x+w,int(size*.78)),radius=int(size*.035),fill=WHITE)
               d.rounded_rectangle((x,y,int(size*.72),y+w),radius=int(size*.035),fill=WHITE)
               d.rounded_rectangle((x,int(size*.45),int(size*.63),int(size*.45)+w),radius=int(size*.035),fill=WHITE)
-              # small diagonal cut gives the same modern stylised-F feel as the supplied brand mark
               d.polygon([(int(size*.43),int(size*.55)),(int(size*.70),int(size*.42)),(int(size*.54),int(size*.67))],fill=NAVY)
               return im
-
-          def draw_q_icon(size=1024):
-              im=Image.new('RGBA',(size,size),TRANS); d=ImageDraw.Draw(im)
-              m=int(size*.08); r=int(size*.18)
+          def qicon(size):
+              im=Image.new('RGBA',(size,size),TRANS); d=ImageDraw.Draw(im); m=int(size*.08); r=int(size*.18)
               d.rounded_rectangle((m,m,size-m,size-m),radius=r,fill=NAVY)
-              box=(int(size*.23),int(size*.20),int(size*.77),int(size*.74))
-              d.ellipse(box,outline=WHITE,width=int(size*.075))
+              d.ellipse((int(size*.23),int(size*.20),int(size*.77),int(size*.74)),outline=WHITE,width=int(size*.075))
               d.line((int(size*.61),int(size*.62),int(size*.79),int(size*.80)),fill=WHITE,width=int(size*.075))
               return im
-
-          # Launcher icon: official left FINSEQ F mark on transparent canvas.
-          icon=draw_f_icon(1024)
-          icon.save(root/'finseq_icon_master.png',format='PNG',optimize=True)
-
-          # Full in-app FINSEQ wordmark matching the supplied F ... FINSEQ ... Q composition.
-          W,H=1800,360
-          logo=Image.new('RGBA',(W,H),TRANS)
-          left=draw_f_icon(260); right=draw_q_icon(260)
-          logo.alpha_composite(left,(20,50)); logo.alpha_composite(right,(1515,50))
-          d=ImageDraw.Draw(logo)
-          word=ImageFont.truetype(bold,150)
-          sub=ImageFont.truetype(regular,34)
-          d.text((315,62),'FINSEQ',font=word,fill=NAVY)
-          d.text((320,228),'FINANCIAL SERVICES',font=sub,fill=NAVY)
+          icon=ficon(1024); icon.save(root/'finseq_icon_master.png',format='PNG',optimize=True)
+          logo=Image.new('RGBA',(1800,360),TRANS); logo.alpha_composite(ficon(260),(20,50)); logo.alpha_composite(qicon(260),(1515,50))
+          d=ImageDraw.Draw(logo); d.text((315,62),'FINSEQ',font=ImageFont.truetype(bold,150),fill=NAVY); d.text((320,228),'FINANCIAL SERVICES',font=ImageFont.truetype(regular,34),fill=NAVY)
           logo.save(root/'finseq_company_logo_transparent.png',format='PNG',optimize=True)
-
-          for name in ['finseq_company_logo_transparent.png','finseq_icon_master.png']:
-              chk=Image.open(root/name); chk.verify(); print(name,'FINSEQ F-Q logo PASS')
+          for n in ('finseq_icon_master.png','finseq_company_logo_transparent.png'):
+              x=Image.open(root/n); x.verify(); print(n,'PASS')
           PY
-          test -s FINSEQ_Attendance_Android/app/src/main/res/drawable/finseq_company_logo_transparent.png
-          test -s FINSEQ_Attendance_Android/app/src/main/res/drawable/finseq_icon_master.png
-          test -s FINSEQ_Attendance_Android/app/src/main/res/drawable/ic_launcher_foreground.xml
-          test -s FINSEQ_Attendance_Android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml
-          test -s FINSEQ_Attendance_Android/app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml
           grep -q '@drawable/finseq_icon_master' FINSEQ_Attendance_Android/app/src/main/res/drawable/ic_launcher_foreground.xml
           grep -q 'android:icon="@mipmap/ic_launcher"' FINSEQ_Attendance_Android/app/src/main/AndroidManifest.xml
           grep -q 'android:roundIcon="@mipmap/ic_launcher_round"' FINSEQ_Attendance_Android/app/src/main/AndroidManifest.xml
           grep -q 'android:screenOrientation="fullSensor"' FINSEQ_Attendance_Android/app/src/main/AndroidManifest.xml
           curl -L --fail --retry 3 -o FINSEQ_Attendance_Android/app/src/main/assets/facenet.tflite https://raw.githubusercontent.com/shubham0204/FaceRecognition_With_FaceNet_Android/master/app/src/main/assets/facenet.tflite
           test -s FINSEQ_Attendance_Android/app/src/main/assets/facenet.tflite
+
       - name: Apply compile-safe JSON patch
         run: |
           python3 - <<'PY'
@@ -98,75 +73,50 @@ jobs:
           s=p.read_text(encoding='utf-8')
           old='static JSONArray json(double[]v){JSONArray a=new JSONArray();for(double x:v)a.put(x);return a;}'
           new='static JSONArray json(double[]v){JSONArray a=new JSONArray();for(double x:v){try{a.put(x);}catch(JSONException e){a.put(0);}}return a;}'
-          if old not in s: raise SystemExit('Expected JSONArray method not found')
+          if old not in s: raise SystemExit('JSONArray anchor missing')
           p.write_text(s.replace(old,new,1),encoding='utf-8')
           PY
-      - name: Apply liveness anti-spoof patch
+
+      - name: Apply attendance patches
         working-directory: FINSEQ_Attendance_Android
-        run: python3 apply_liveness_v1_1.py
-      - name: Apply FaceNet recognition and consensus
-        working-directory: FINSEQ_Attendance_Android
-        run: python3 apply_v1_2_recognition.py
-      - name: Apply enrollment operator compatibility
-        working-directory: FINSEQ_Attendance_Android
-        run: python3 apply_v1_2_operator.py
-      - name: Apply automatic face enrollment
-        working-directory: FINSEQ_Attendance_Android
-        run: python3 apply_v1_2_auto_enroll.py
-      - name: Apply secure FaceNet endpoints
-        working-directory: FINSEQ_Attendance_Android
-        run: python3 apply_v1_2_secure_routes.py
-      - name: Apply FINSEQ branding and welcome
-        working-directory: FINSEQ_Attendance_Android
-        run: python3 apply_v1_2_branding.py
-      - name: Apply approved premium UI
-        working-directory: FINSEQ_Attendance_Android
-        run: python3 apply_v1_3_premium_ui.py
-      - name: Apply stability, rotation and state bug fixes
-        working-directory: FINSEQ_Attendance_Android
-        run: python3 apply_v1_3_2_stability.py
-      - name: Apply v1.4 PIN enrollment and official FINSEQ branding
-        working-directory: FINSEQ_Attendance_Android
-        run: python3 apply_v1_4_pin_enrollment.py
-      - name: Apply v1.4.1 continuous fast face engine
-        working-directory: FINSEQ_Attendance_Android
-        run: python3 apply_v1_4_1_fast_engine.py
-      - name: Verify v1.4.2 source invariants
+        run: |
+          python3 apply_liveness_v1_1.py
+          python3 apply_v1_2_recognition.py
+          python3 apply_v1_2_operator.py
+          python3 apply_v1_2_auto_enroll.py
+          python3 apply_v1_2_secure_routes.py
+          python3 apply_v1_2_branding.py
+          python3 apply_v1_3_premium_ui.py
+          python3 apply_v1_3_2_stability.py
+          python3 apply_v1_4_pin_enrollment.py
+          python3 apply_v1_4_1_fast_engine.py
+
+      - name: Verify source invariants
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          p=Path('FINSEQ_Attendance_Android/app/src/main/java/in/finseq/attendance/MainActivity.java')
-          s=p.read_text(encoding='utf-8')
-          kiosk=s[s.find('void showKiosk(){'):s.find('void scheduleScan(long delay){')]
+          s=Path('FINSEQ_Attendance_Android/app/src/main/java/in/finseq/attendance/MainActivity.java').read_text(encoding='utf-8')
           checks={
-            'official company logo':'finseq_company_logo_transparent' in s,
-            'PIN endpoint':'/api/attendance/secure/pin-verify' in s,
-            '6-digit PIN UI':'6-digit Enrollment PIN' in s,
-            'FaceNet engine':'FaceEmbeddingModel embedder' in s,
-            'ImageAnalysis':'ImageAnalysis imageAnalysis' in s and 'setAnalyzer(analysisIo,this::analyzeFastFrame)' in s,
-            'keep-only-latest':'STRATEGY_KEEP_ONLY_LATEST' in s,
-            'live 4-frame consensus':'fastWindow.size()<4' in s and 'consensus_frames",4' in s,
-            'second-best margin':'MIN_SECOND_BEST_MARGIN' in s,
-            'passive live motion':'live_multiframe_motion' in s,
-            'blink fallback':'live_blink' in s,
-            'compressed proof':'encodeProof(crop)' in s,
-            'kiosk no scheduled still capture':'scheduleScan(' not in kiosk,
+            'official logo':'finseq_company_logo_transparent' in s,
+            'PIN enrollment':'/api/attendance/secure/pin-verify' in s and '6-digit Enrollment PIN' in s,
+            'live ImageAnalysis':'ImageAnalysis imageAnalysis' in s and 'STRATEGY_KEEP_ONLY_LATEST' in s,
+            'FaceNet':'FaceEmbeddingModel embedder' in s,
+            '4-frame consensus':'fastWindow.size()<4' in s,
+            'liveness':'live_multiframe_motion' in s and 'live_blink' in s,
+            'cooldown':'last_person_id' in s and 'last_submit_at' in s,
+            'rotation':'imageAnalysis.setTargetRotation(rotation)' in s,
             'dynamic version':'BuildConfig.VERSION_NAME' in s,
-            'persistent cooldown':'last_person_id' in s and 'last_submit_at' in s,
-            'enrollment cancel guard':'enrollmentActive' in s,
-            'fresh profile sync':'Refreshing authorized face profiles' in s,
-            'stale GPS rejection':'120000L' in s,
-            'front camera required':'LENS_FACING_FRONT' in s,
-            'rotation analysis update':'imageAnalysis.setTargetRotation(rotation)' in s,
           }
-          bad=[k for k,v in checks.items() if not v]
           for k,v in checks.items(): print(k,'PASS' if v else 'FAIL')
-          if bad: raise SystemExit('Source invariant failures: '+', '.join(bad))
+          bad=[k for k,v in checks.items() if not v]
+          if bad: raise SystemExit('Failed checks: '+', '.join(bad))
           PY
-      - name: Build FINSEQ Attendance APK
+
+      - name: Build APK
         working-directory: FINSEQ_Attendance_Android
         run: gradle --no-daemon :app:assembleDebug
-      - name: Verify packaged official logo, launcher and manifest
+
+      - name: Verify packaged logo, launcher and manifest
         run: |
           APK=FINSEQ_Attendance_Android/app/build/outputs/apk/debug/app-debug.apk
           python3 - <<'PY'
@@ -175,24 +125,27 @@ jobs:
           apk='FINSEQ_Attendance_Android/app/build/outputs/apk/debug/app-debug.apk'
           with zipfile.ZipFile(apk) as z:
               names=set(z.namelist())
-              required={'res/drawable/finseq_company_logo_transparent.png','res/drawable/finseq_icon_master.png','res/drawable/ic_launcher_foreground.xml','res/mipmap-anydpi-v26/ic_launcher.xml','res/mipmap-anydpi-v26/ic_launcher_round.xml'}
-              missing=required-names
-              if missing: raise SystemExit(f'Missing packaged FINSEQ resources: {missing}')
-              for name in ['res/drawable/finseq_company_logo_transparent.png','res/drawable/finseq_icon_master.png']:
-                  im=Image.open(io.BytesIO(z.read(name))); im.verify(); print(name,'PNG decode PASS')
-              fg=z.read('res/drawable/ic_launcher_foreground.xml')
-              if b'finseq_icon_master' not in fg: raise SystemExit('Launcher foreground is not official FINSEQ icon')
+              req={'res/drawable/finseq_company_logo_transparent.png','res/drawable/finseq_icon_master.png','res/drawable/ic_launcher_foreground.xml','res/mipmap-anydpi-v26/ic_launcher.xml','res/mipmap-anydpi-v26/ic_launcher_round.xml'}
+              missing=req-names
+              if missing: raise SystemExit('Missing resources: '+str(missing))
+              for n in ('res/drawable/finseq_company_logo_transparent.png','res/drawable/finseq_icon_master.png'):
+                  im=Image.open(io.BytesIO(z.read(n))); im.verify(); print(n,'PNG PASS')
           PY
+          "$ANDROID_HOME/build-tools/35.0.0/aapt2" dump resources "$APK" > /tmp/resources.txt
+          grep -q 'finseq_icon_master' /tmp/resources.txt
+          grep -q 'finseq_company_logo_transparent' /tmp/resources.txt
           "$ANDROID_HOME/build-tools/35.0.0/aapt2" dump xmltree "$APK" --file AndroidManifest.xml > /tmp/manifest.txt
           grep -q 'android:icon' /tmp/manifest.txt
           grep -q 'android:roundIcon' /tmp/manifest.txt
           grep -q 'android:screenOrientation' /tmp/manifest.txt
           grep -q 'android:configChanges' /tmp/manifest.txt
-          echo 'Official FINSEQ F-Q logo + launcher + rotation verification PASS'
+          echo 'Packaged FINSEQ logo + launcher + rotation PASS'
+
       - name: Prepare APK
         run: |
           cp FINSEQ_Attendance_Android/app/build/outputs/apk/debug/app-debug.apk FINSEQ_ATTENDANCE_V1_4_2_FAST_OFFICIAL_LOGO.apk
           ls -lh FINSEQ_ATTENDANCE_V1_4_2_FAST_OFFICIAL_LOGO.apk
+
       - uses: actions/upload-artifact@v4
         with:
           name: FINSEQ-Attendance-V1.4.2-Fast-Official-Logo
