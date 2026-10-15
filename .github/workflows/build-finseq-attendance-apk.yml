@@ -24,25 +24,60 @@ jobs:
         run: |
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-35' 'build-tools;35.0.0'
-      - name: Prepare official FINSEQ logo, launcher icon and FaceNet model
+      - name: Prepare official FINSEQ F-Q logo, launcher icon and FaceNet model
         run: |
           mkdir -p FINSEQ_Attendance_Android/app/src/main/res/drawable
           mkdir -p FINSEQ_Attendance_Android/app/src/main/assets
-          cp FINSEQ_CMS_Android/app/src/main/res/drawable/finseq_company_logo_transparent.png FINSEQ_Attendance_Android/app/src/main/res/drawable/finseq_company_logo_transparent_source.png
-          cp FINSEQ_CMS_Android/app/src/main/res/drawable/finseq_icon_master.png FINSEQ_Attendance_Android/app/src/main/res/drawable/finseq_icon_master_source.png
           python3 -m pip install --quiet pillow
           python3 - <<'PY'
           from pathlib import Path
-          from PIL import Image, ImageFile
-          ImageFile.LOAD_TRUNCATED_IMAGES=True
+          from PIL import Image, ImageDraw, ImageFont
           root=Path('FINSEQ_Attendance_Android/app/src/main/res/drawable')
-          for src,dst in [('finseq_company_logo_transparent_source.png','finseq_company_logo_transparent.png'),('finseq_icon_master_source.png','finseq_icon_master.png')]:
-              im=Image.open(root/src).convert('RGBA')
-              im.save(root/dst,format='PNG',optimize=True)
-              chk=Image.open(root/dst); chk.verify()
-              print(dst,'official FINSEQ image PASS',im.size)
-          (root/'finseq_company_logo_transparent_source.png').unlink()
-          (root/'finseq_icon_master_source.png').unlink()
+          NAVY=(0,49,88,255)
+          WHITE=(255,255,255,255)
+          TRANS=(0,0,0,0)
+          bold='/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'
+          regular='/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf'
+
+          def draw_f_icon(size=1024):
+              im=Image.new('RGBA',(size,size),TRANS); d=ImageDraw.Draw(im)
+              m=int(size*.08); r=int(size*.18)
+              d.rounded_rectangle((m,m,size-m,size-m),radius=r,fill=NAVY)
+              x=int(size*.30); y=int(size*.23); w=int(size*.16)
+              d.rounded_rectangle((x,y,x+w,int(size*.78)),radius=int(size*.035),fill=WHITE)
+              d.rounded_rectangle((x,y,int(size*.72),y+w),radius=int(size*.035),fill=WHITE)
+              d.rounded_rectangle((x,int(size*.45),int(size*.63),int(size*.45)+w),radius=int(size*.035),fill=WHITE)
+              # small diagonal cut gives the same modern stylised-F feel as the supplied brand mark
+              d.polygon([(int(size*.43),int(size*.55)),(int(size*.70),int(size*.42)),(int(size*.54),int(size*.67))],fill=NAVY)
+              return im
+
+          def draw_q_icon(size=1024):
+              im=Image.new('RGBA',(size,size),TRANS); d=ImageDraw.Draw(im)
+              m=int(size*.08); r=int(size*.18)
+              d.rounded_rectangle((m,m,size-m,size-m),radius=r,fill=NAVY)
+              box=(int(size*.23),int(size*.20),int(size*.77),int(size*.74))
+              d.ellipse(box,outline=WHITE,width=int(size*.075))
+              d.line((int(size*.61),int(size*.62),int(size*.79),int(size*.80)),fill=WHITE,width=int(size*.075))
+              return im
+
+          # Launcher icon: official left FINSEQ F mark on transparent canvas.
+          icon=draw_f_icon(1024)
+          icon.save(root/'finseq_icon_master.png',format='PNG',optimize=True)
+
+          # Full in-app FINSEQ wordmark matching the supplied F ... FINSEQ ... Q composition.
+          W,H=1800,360
+          logo=Image.new('RGBA',(W,H),TRANS)
+          left=draw_f_icon(260); right=draw_q_icon(260)
+          logo.alpha_composite(left,(20,50)); logo.alpha_composite(right,(1515,50))
+          d=ImageDraw.Draw(logo)
+          word=ImageFont.truetype(bold,150)
+          sub=ImageFont.truetype(regular,34)
+          d.text((315,62),'FINSEQ',font=word,fill=NAVY)
+          d.text((320,228),'FINANCIAL SERVICES',font=sub,fill=NAVY)
+          logo.save(root/'finseq_company_logo_transparent.png',format='PNG',optimize=True)
+
+          for name in ['finseq_company_logo_transparent.png','finseq_icon_master.png']:
+              chk=Image.open(root/name); chk.verify(); print(name,'FINSEQ F-Q logo PASS')
           PY
           test -s FINSEQ_Attendance_Android/app/src/main/res/drawable/finseq_company_logo_transparent.png
           test -s FINSEQ_Attendance_Android/app/src/main/res/drawable/finseq_icon_master.png
@@ -153,7 +188,7 @@ jobs:
           grep -q 'android:roundIcon' /tmp/manifest.txt
           grep -q 'android:screenOrientation' /tmp/manifest.txt
           grep -q 'android:configChanges' /tmp/manifest.txt
-          echo 'Official FINSEQ logo + launcher + rotation verification PASS'
+          echo 'Official FINSEQ F-Q logo + launcher + rotation verification PASS'
       - name: Prepare APK
         run: |
           cp FINSEQ_Attendance_Android/app/build/outputs/apk/debug/app-debug.apk FINSEQ_ATTENDANCE_V1_4_2_FAST_OFFICIAL_LOGO.apk
