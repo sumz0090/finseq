@@ -14,9 +14,14 @@ def replace_method(src,signature,replacement):
             if depth==0:return src[:start]+replacement+src[i+1:]
     raise SystemExit('Unclosed '+signature)
 
-# Reliable FINSEQ branding: use the clean vector shield, not the previously corrupt PNG asset.
+# Official FINSEQ branding: use the company logo artwork supplied in FINSEQ CMS.
 s=replace_method(s,'    ImageView finseqLogo(int height){','''    ImageView finseqLogo(int height){
-        ImageView v=new ImageView(this);v.setImageResource(getResources().getIdentifier("ic_finseq_shield","drawable",getPackageName()));v.setAdjustViewBounds(true);v.setScaleType(ImageView.ScaleType.FIT_CENTER);v.setLayoutParams(new LinearLayout.LayoutParams(-1,dp(height)));return v;
+        ImageView v=new ImageView(this);
+        int id=getResources().getIdentifier("finseq_company_logo_transparent","drawable",getPackageName());
+        if(id==0)throw new IllegalStateException("Official FINSEQ company logo resource missing");
+        v.setImageResource(id);v.setAdjustViewBounds(true);v.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        v.setPadding(dp(10),dp(6),dp(10),dp(6));v.setBackground(bg(Color.WHITE,14));
+        v.setLayoutParams(new LinearLayout.LayoutParams(-1,dp(height)));return v;
     }''')
 s=s.replace('TextView t=text("Attendance",31,true);','TextView t=text("FINSEQ Attendance",31,true);')
 
@@ -46,4 +51,4 @@ s=replace_method(s,'    void promptAdminForEnrollment(){',replacement)
 s=s.replace('Automatic enrollment\\nLook straight, then slowly turn left and right','Automatic enrollment\\nEmployee verified by Admin PIN · Look straight, then slowly turn left and right')
 
 p.write_text(s,encoding='utf-8')
-print('FINSEQ Attendance v1.4 staff-specific PIN enrollment + clean branding patch applied')
+print('FINSEQ Attendance v1.4 staff-specific PIN enrollment + official FINSEQ branding patch applied')
