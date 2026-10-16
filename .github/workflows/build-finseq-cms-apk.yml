@@ -35,16 +35,12 @@ jobs:
       - name: Build FINSEQ CMS Debug APK
         working-directory: FINSEQ_CMS_Android
         run: gradle --no-daemon :app:assembleDebug
-      - name: Prepare APK and full source project
+      - name: Prepare APK
         run: |
           cp FINSEQ_CMS_Android/app/build/outputs/apk/debug/app-debug.apk FINSEQ_CMS_V3_0_5_0_BIOMETRIC_SESSION_FIX.apk
-          rm -rf FINSEQ_CMS_Android/app/build FINSEQ_CMS_Android/.gradle
-          zip -qr FINSEQ_CMS_Android_V3_0_5_0_FULL_PROJECT.zip FINSEQ_CMS_Android
-          ls -lh FINSEQ_CMS_V3_0_5_0_BIOMETRIC_SESSION_FIX.apk FINSEQ_CMS_Android_V3_0_5_0_FULL_PROJECT.zip
+          ls -lh FINSEQ_CMS_V3_0_5_0_BIOMETRIC_SESSION_FIX.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: FINSEQ-CMS-V3.0.5.0-Full-Project
-          path: |
-            FINSEQ_CMS_V3_0_5_0_BIOMETRIC_SESSION_FIX.apk
-            FINSEQ_CMS_Android_V3_0_5_0_FULL_PROJECT.zip
+          name: FINSEQ-CMS-V3.0.5.0-Biometric-Session-Fix
+          path: FINSEQ_CMS_V3_0_5_0_BIOMETRIC_SESSION_FIX.apk
           if-no-files-found: error
