@@ -144,17 +144,13 @@ jobs:
           grep -q 'android:configChanges' /tmp/manifest.txt
           echo 'Packaged FINSEQ logo + launcher + rotation PASS'
 
-      - name: Prepare APK and full source project
+      - name: Prepare APK
         run: |
           cp FINSEQ_Attendance_Android/app/build/outputs/apk/debug/app-debug.apk FINSEQ_ATTENDANCE_V1_4_3_MULTI_SESSION.apk
-          rm -rf FINSEQ_Attendance_Android/app/build FINSEQ_Attendance_Android/.gradle
-          zip -qr FINSEQ_Attendance_Android_V1_4_3_FULL_PROJECT.zip FINSEQ_Attendance_Android
-          ls -lh FINSEQ_ATTENDANCE_V1_4_3_MULTI_SESSION.apk FINSEQ_Attendance_Android_V1_4_3_FULL_PROJECT.zip
+          ls -lh FINSEQ_ATTENDANCE_V1_4_3_MULTI_SESSION.apk
 
       - uses: actions/upload-artifact@v4
         with:
-          name: FINSEQ-Attendance-V1.4.3-Full-Project
-          path: |
-            FINSEQ_ATTENDANCE_V1_4_3_MULTI_SESSION.apk
-            FINSEQ_Attendance_Android_V1_4_3_FULL_PROJECT.zip
+          name: FINSEQ-Attendance-V1.4.3-Multi-Session
+          path: FINSEQ_ATTENDANCE_V1_4_3_MULTI_SESSION.apk
           if-no-files-found: error
