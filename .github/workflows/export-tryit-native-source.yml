@@ -1,0 +1,26 @@
+name: Export TRYIT Native Source
+
+on:
+  push:
+    branches:
+      - tryit-native-phase-a-20261010
+  workflow_dispatch:
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Package native source
+        shell: bash
+        run: |
+          mkdir -p export
+          zip -r export/TRYIT_Native_Android_Source_Build_Files.zip tryit-native-phase-a \
+            -x 'tryit-native-phase-a/.gradle/*' \
+               'tryit-native-phase-a/app/build/*' \
+               'tryit-native-phase-a/build/*'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TRYIT-Native-Android-Source-Build-Files
+          path: export/TRYIT_Native_Android_Source_Build_Files.zip
+          if-no-files-found: error
