@@ -32,6 +32,7 @@
         <activity android:name=".PhysicalCopyActivity"/>
         <activity android:name=".UploadPolicyActivity"/>
         <activity android:name=".RenewalsActivity"/>
+        <activity android:name=".PaymentReviewActivity"/>
         <activity android:name=".PoliciesActivity"/>
         <activity android:name=".AccountsActivity"/>
         <activity android:name=".MandatesActivity"/>
