@@ -14,6 +14,7 @@ public class MoreActivity extends FinseqActivity {
    if(AccessControl.has(this,"policies"))add("⚠","Unassigned Policies","Policies awaiting customer mapping",UnassignedPoliciesActivity.class);
    if(AccessControl.has(this,"customers"))add("👪","Family & Merge Tools","Family mapping, internal transfer and duplicate merge",FamilyToolsActivity.class);
    if(AccessControl.has(this,"renewals"))add("⏰","Renewals","Calls, WhatsApp and reminders",RenewalsActivity.class);
+   if(AccessControl.has(this,"payment_review"))add("₹","Payment Review","Review/edit pending payment requests before approval",PaymentReviewActivity.class);
   }
   add("⚙","Display Settings","System Default, Light, Dark, language and font size",DisplaySettingsActivity.class);
   body.addView(Ui.sub(this,"Version "+BuildConfig.VERSION_NAME+" · Build "+BuildConfig.VERSION_CODE));
