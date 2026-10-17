@@ -18,6 +18,19 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      KS_B64_A: ${{ secrets.FINSEQ_CMS_KEYSTORE_BASE64 }}
+      KS_B64_B: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+      KS_B64_C: ${{ secrets.KEYSTORE_BASE64 }}
+      KS_PASS_A: ${{ secrets.FINSEQ_CMS_KEYSTORE_PASSWORD }}
+      KS_PASS_B: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+      KS_PASS_C: ${{ secrets.KEYSTORE_PASSWORD }}
+      KEY_ALIAS_A: ${{ secrets.FINSEQ_CMS_KEY_ALIAS }}
+      KEY_ALIAS_B: ${{ secrets.ANDROID_KEY_ALIAS }}
+      KEY_ALIAS_C: ${{ secrets.KEY_ALIAS }}
+      KEY_PASS_A: ${{ secrets.FINSEQ_CMS_KEY_PASSWORD }}
+      KEY_PASS_B: ${{ secrets.ANDROID_KEY_PASSWORD }}
+      KEY_PASS_C: ${{ secrets.KEY_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -27,6 +40,18 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
+      - name: Check production signing secret availability
+        run: |
+          KS_B64="${KS_B64_A:-${KS_B64_B:-${KS_B64_C:-}}}"
+          KS_PASS="${KS_PASS_A:-${KS_PASS_B:-${KS_PASS_C:-}}}"
+          KEY_ALIAS_VALUE="${KEY_ALIAS_A:-${KEY_ALIAS_B:-${KEY_ALIAS_C:-}}}"
+          KEY_PASS_VALUE="${KEY_PASS_A:-${KEY_PASS_B:-${KEY_PASS_C:-}}}"
+          if [ -n "$KS_B64" ] && [ -n "$KS_PASS" ] && [ -n "$KEY_ALIAS_VALUE" ]; then
+            echo "PRODUCTION_SIGNING_SECRETS_AVAILABLE=true"
+          else
+            echo "PRODUCTION_SIGNING_SECRETS_AVAILABLE=false"
+          fi
+          if [ -n "$KEY_PASS_VALUE" ]; then echo "DEDICATED_KEY_PASSWORD_AVAILABLE=true"; else echo "DEDICATED_KEY_PASSWORD_AVAILABLE=false"; fi
       - name: Install Android SDK 35
         run: |
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
@@ -43,19 +68,11 @@ jobs:
           res=Path('FINSEQ_CMS_Android/app/src/main/res')
           def logo(size, transparent=False):
               bg=(255,255,255,0) if transparent else (255,255,255,255)
-              im=Image.new('RGBA',(size,size),bg)
-              d=ImageDraw.Draw(im)
-              navy=(16,46,86,255)
-              # clean FINSEQ mark used only to replace repository-corrupted PNG bytes at build time
+              im=Image.new('RGBA',(size,size),bg); d=ImageDraw.Draw(im); navy=(16,46,86,255)
               d.rounded_rectangle((int(size*.08),int(size*.08),int(size*.92),int(size*.92)),radius=max(4,int(size*.12)),fill=navy)
               text='FINSEQ'
-              font=ImageFont.load_default()
-              box=d.textbbox((0,0),text,font=font)
-              tw,th=box[2]-box[0],box[3]-box[1]
-              scale=max(1,int(size/(tw*1.35)))
-              try:
-                  font=ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',max(10,int(size*.16)))
-              except Exception: pass
+              try: font=ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',max(10,int(size*.16)))
+              except Exception: font=ImageFont.load_default()
               box=d.textbbox((0,0),text,font=font); tw,th=box[2]-box[0],box[3]-box[1]
               d.text(((size-tw)/2,(size-th)/2),text,font=font,fill='white')
               return im
@@ -68,19 +85,32 @@ jobs:
       - name: Build FINSEQ CMS v3.0.5.1 release APK
         working-directory: FINSEQ_CMS_Android
         run: gradle --no-daemon :app:assembleRelease
-      - name: Prepare build outputs
+      - name: Prepare and sign build output when repository secrets exist
         run: |
           mkdir -p out
-          cp FINSEQ_CMS_Android/app/build/outputs/apk/release/app-release-unsigned.apk out/FINSEQ_CMS_V3_0_5_1_RELEASE_UNSIGNED.apk
+          UNSIGNED="FINSEQ_CMS_Android/app/build/outputs/apk/release/app-release-unsigned.apk"
+          cp "$UNSIGNED" out/FINSEQ_CMS_V3_0_5_1_RELEASE_UNSIGNED.apk
+          KS_B64="${KS_B64_A:-${KS_B64_B:-${KS_B64_C:-}}}"
+          KS_PASS="${KS_PASS_A:-${KS_PASS_B:-${KS_PASS_C:-}}}"
+          KEY_ALIAS_VALUE="${KEY_ALIAS_A:-${KEY_ALIAS_B:-${KEY_ALIAS_C:-}}}"
+          KEY_PASS_VALUE="${KEY_PASS_A:-${KEY_PASS_B:-${KEY_PASS_C:-$KS_PASS}}}"
+          if [ -n "$KS_B64" ] && [ -n "$KS_PASS" ] && [ -n "$KEY_ALIAS_VALUE" ]; then
+            printf '%s' "$KS_B64" | base64 -d > /tmp/finseq-release.jks
+            "$ANDROID_HOME/build-tools/35.0.0/zipalign" -p -f 4 "$UNSIGNED" /tmp/finseq-aligned.apk
+            "$ANDROID_HOME/build-tools/35.0.0/apksigner" sign --ks /tmp/finseq-release.jks --ks-key-alias "$KEY_ALIAS_VALUE" --ks-pass "pass:$KS_PASS" --key-pass "pass:$KEY_PASS_VALUE" --out out/FINSEQ_CMS_V3_0_5_1_PRODUCTION_SIGNED.apk /tmp/finseq-aligned.apk
+            "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs out/FINSEQ_CMS_V3_0_5_1_PRODUCTION_SIGNED.apk > out/signature-verification.txt
+            echo "PRODUCTION_APK_CREATED=true"
+          else
+            echo "PRODUCTION_APK_CREATED=false"
+          fi
           cp "$ANDROID_HOME/build-tools/35.0.0/zipalign" out/zipalign
           cp "$ANDROID_HOME/build-tools/35.0.0/apksigner" out/apksigner
           mkdir -p out/lib
           cp "$ANDROID_HOME/build-tools/35.0.0/lib/apksigner.jar" out/lib/apksigner.jar
           chmod +x out/zipalign out/apksigner
-          ls -lh out/FINSEQ_CMS_V3_0_5_1_RELEASE_UNSIGNED.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: FINSEQ-CMS-V3.0.5.1-Unsigned-And-SigningTools
+          name: FINSEQ-CMS-V3.0.5.1-Build-And-SigningTools
           path: out/
           if-no-files-found: error
           compression-level: 0
