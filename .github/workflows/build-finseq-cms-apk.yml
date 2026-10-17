@@ -9,14 +9,14 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: finseq-cms-apk-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  build:
+  export-toolchain:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -27,68 +27,21 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
-      - name: Verify Android SDK
-        run: |
-          echo "ANDROID_HOME=$ANDROID_HOME"
-          echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
-          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --version
       - name: Install Android SDK 35
         run: |
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-35' 'build-tools;35.0.0'
-      - name: Apply Attendance source patch
-        working-directory: FINSEQ_CMS_Android
-        run: python3 apply_attendance_phase2.py
-      - name: Rebuild launcher PNGs from FINSEQ company logo
+      - name: Export local Android build toolchain
         run: |
-          python3 -m pip install --quiet pillow
-          python3 - <<'PY'
-          from pathlib import Path
-          from PIL import Image, ImageOps
-          res=Path('FINSEQ_CMS_Android/app/src/main/res')
-          src=res/'drawable/finseq_company_logo_transparent.png'
-          with Image.open(src) as raw:
-              logo=raw.convert('RGBA')
-              logo.load()
-          def square(size):
-              canvas=Image.new('RGBA',(size,size),(255,255,255,0))
-              inset=max(2,int(size*.08))
-              fitted=ImageOps.contain(logo,(size-2*inset,size-2*inset),Image.Resampling.LANCZOS)
-              canvas.alpha_composite(fitted,((size-fitted.width)//2,(size-fitted.height)//2))
-              return canvas
-          square(512).save(res/'drawable/finseq_icon_master.png','PNG')
-          for folder,size in [('mipmap-mdpi',48),('mipmap-hdpi',72),('mipmap-xhdpi',96),('mipmap-xxhdpi',144),('mipmap-xxxhdpi',192)]:
-              out=res/folder/'ic_launcher.png'
-              out.parent.mkdir(parents=True,exist_ok=True)
-              square(size).save(out,'PNG')
-              print('rebuilt',out)
-          PY
-      - name: Build FINSEQ CMS Release APK (unsigned)
-        working-directory: FINSEQ_CMS_Android
-        run: gradle --no-daemon :app:assembleRelease
-      - name: Prepare APK
-        run: |
-          mkdir -p artifacts
-          cp FINSEQ_CMS_Android/app/build/outputs/apk/release/app-release-unsigned.apk artifacts/FINSEQ_CMS_V3_0_5_1_RELEASE_UNSIGNED.apk
-          cp "$ANDROID_HOME/build-tools/35.0.0/zipalign" artifacts/zipalign
-          cp "$ANDROID_HOME/build-tools/35.0.0/apksigner" artifacts/apksigner
-          mkdir -p artifacts/lib
-          cp "$ANDROID_HOME/build-tools/35.0.0/lib/apksigner.jar" artifacts/lib/apksigner.jar
-          chmod +x artifacts/zipalign artifacts/apksigner
-          ls -lh artifacts/FINSEQ_CMS_V3_0_5_1_RELEASE_UNSIGNED.apk
+          mkdir -p toolchain
+          GRADLE_BIN="$(command -v gradle)"
+          GRADLE_HOME="$(cd "$(dirname "$GRADLE_BIN")/.." && pwd)"
+          tar -czf toolchain/gradle-8.9.tar.gz -C "$(dirname "$GRADLE_HOME")" "$(basename "$GRADLE_HOME")"
+          tar -czf toolchain/android-sdk-35.tar.gz -C "$ANDROID_HOME" build-tools/35.0.0 platforms/android-35 licenses
+          printf '%s\n' "$GRADLE_HOME" > toolchain/gradle-home.txt
+          ls -lh toolchain
       - uses: actions/upload-artifact@v4
         with:
-          name: FINSEQ-CMS-V3.0.5.1-Build
-          path: artifacts/
+          name: FINSEQ-Android-Local-Toolchain
+          path: toolchain/
           if-no-files-found: error
-      - name: Publish unsigned APK for owner-side production signing
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -f artifacts/FINSEQ_CMS_V3_0_5_1_RELEASE_UNSIGNED.apk
-          if git diff --cached --quiet; then
-            echo "APK unchanged; nothing to commit."
-          else
-            git commit -m "build: FINSEQ CMS v3.0.5.1 unsigned APK"
-            git push
-          fi
