@@ -39,6 +39,21 @@ jobs:
       - name: Apply Attendance source patch
         working-directory: FINSEQ_CMS_Android
         run: python3 apply_attendance_phase2.py
+      - name: Normalize PNG resources for AAPT2
+        run: |
+          python3 -m pip install --quiet pillow
+          python3 - <<'PY'
+          from pathlib import Path
+          from PIL import Image
+          root=Path('FINSEQ_CMS_Android/app/src/main/res')
+          for p in root.rglob('*.png'):
+              with Image.open(p) as im:
+                  im.load()
+                  if im.mode not in ('RGB','RGBA','L','LA'):
+                      im=im.convert('RGBA')
+                  im.save(p,format='PNG',optimize=False,compress_level=6)
+              print('normalized',p)
+          PY
       - name: Build FINSEQ CMS Release APK (unsigned)
         working-directory: FINSEQ_CMS_Android
         run: gradle --no-daemon :app:assembleRelease
