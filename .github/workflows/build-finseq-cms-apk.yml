@@ -39,20 +39,29 @@ jobs:
       - name: Apply Attendance source patch
         working-directory: FINSEQ_CMS_Android
         run: python3 apply_attendance_phase2.py
-      - name: Normalize PNG resources for AAPT2
+      - name: Rebuild launcher PNGs from FINSEQ company logo
         run: |
           python3 -m pip install --quiet pillow
           python3 - <<'PY'
           from pathlib import Path
-          from PIL import Image
-          root=Path('FINSEQ_CMS_Android/app/src/main/res')
-          for p in root.rglob('*.png'):
-              with Image.open(p) as im:
-                  im.load()
-                  if im.mode not in ('RGB','RGBA','L','LA'):
-                      im=im.convert('RGBA')
-                  im.save(p,format='PNG',optimize=False,compress_level=6)
-              print('normalized',p)
+          from PIL import Image, ImageOps
+          res=Path('FINSEQ_CMS_Android/app/src/main/res')
+          src=res/'drawable/finseq_company_logo_transparent.png'
+          with Image.open(src) as raw:
+              logo=raw.convert('RGBA')
+              logo.load()
+          def square(size):
+              canvas=Image.new('RGBA',(size,size),(255,255,255,0))
+              inset=max(2,int(size*.08))
+              fitted=ImageOps.contain(logo,(size-2*inset,size-2*inset),Image.Resampling.LANCZOS)
+              canvas.alpha_composite(fitted,((size-fitted.width)//2,(size-fitted.height)//2))
+              return canvas
+          square(512).save(res/'drawable/finseq_icon_master.png','PNG')
+          for folder,size in [('mipmap-mdpi',48),('mipmap-hdpi',72),('mipmap-xhdpi',96),('mipmap-xxhdpi',144),('mipmap-xxxhdpi',192)]:
+              out=res/folder/'ic_launcher.png'
+              out.parent.mkdir(parents=True,exist_ok=True)
+              square(size).save(out,'PNG')
+              print('rebuilt',out)
           PY
       - name: Build FINSEQ CMS Release APK (unsigned)
         working-directory: FINSEQ_CMS_Android
@@ -61,11 +70,16 @@ jobs:
         run: |
           mkdir -p artifacts
           cp FINSEQ_CMS_Android/app/build/outputs/apk/release/app-release-unsigned.apk artifacts/FINSEQ_CMS_V3_0_5_1_RELEASE_UNSIGNED.apk
+          cp "$ANDROID_HOME/build-tools/35.0.0/zipalign" artifacts/zipalign
+          cp "$ANDROID_HOME/build-tools/35.0.0/apksigner" artifacts/apksigner
+          mkdir -p artifacts/lib
+          cp "$ANDROID_HOME/build-tools/35.0.0/lib/apksigner.jar" artifacts/lib/apksigner.jar
+          chmod +x artifacts/zipalign artifacts/apksigner
           ls -lh artifacts/FINSEQ_CMS_V3_0_5_1_RELEASE_UNSIGNED.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: FINSEQ-CMS-V3.0.5.1-Release-Unsigned
-          path: artifacts/FINSEQ_CMS_V3_0_5_1_RELEASE_UNSIGNED.apk
+          name: FINSEQ-CMS-V3.0.5.1-Build
+          path: artifacts/
           if-no-files-found: error
       - name: Publish unsigned APK for owner-side production signing
         run: |
