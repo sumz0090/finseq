@@ -8,6 +8,13 @@ on:
       - '.github/workflows/build-finseq-cms-apk.yml'
   workflow_dispatch:
 
+permissions:
+  contents: write
+
+concurrency:
+  group: finseq-cms-apk-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -32,15 +39,27 @@ jobs:
       - name: Apply Attendance source patch
         working-directory: FINSEQ_CMS_Android
         run: python3 apply_attendance_phase2.py
-      - name: Build FINSEQ CMS Debug APK
+      - name: Build FINSEQ CMS Release APK (unsigned)
         working-directory: FINSEQ_CMS_Android
-        run: gradle --no-daemon :app:assembleDebug
+        run: gradle --no-daemon :app:assembleRelease
       - name: Prepare APK
         run: |
-          cp FINSEQ_CMS_Android/app/build/outputs/apk/debug/app-debug.apk FINSEQ_CMS_V3_0_5_0_BIOMETRIC_SESSION_FIX.apk
-          ls -lh FINSEQ_CMS_V3_0_5_0_BIOMETRIC_SESSION_FIX.apk
+          mkdir -p artifacts
+          cp FINSEQ_CMS_Android/app/build/outputs/apk/release/app-release-unsigned.apk artifacts/FINSEQ_CMS_V3_0_5_1_RELEASE_UNSIGNED.apk
+          ls -lh artifacts/FINSEQ_CMS_V3_0_5_1_RELEASE_UNSIGNED.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: FINSEQ-CMS-V3.0.5.0-Biometric-Session-Fix
-          path: FINSEQ_CMS_V3_0_5_0_BIOMETRIC_SESSION_FIX.apk
+          name: FINSEQ-CMS-V3.0.5.1-Release-Unsigned
+          path: artifacts/FINSEQ_CMS_V3_0_5_1_RELEASE_UNSIGNED.apk
           if-no-files-found: error
+      - name: Publish unsigned APK for owner-side production signing
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f artifacts/FINSEQ_CMS_V3_0_5_1_RELEASE_UNSIGNED.apk
+          if git diff --cached --quiet; then
+            echo "APK unchanged; nothing to commit."
+          else
+            git commit -m "build: FINSEQ CMS v3.0.5.1 unsigned APK"
+            git push
+          fi
