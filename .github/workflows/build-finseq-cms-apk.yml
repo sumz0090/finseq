@@ -31,17 +31,37 @@ jobs:
         run: |
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-35' 'build-tools;35.0.0'
-      - name: Export local Android build toolchain
+      - name: Export and split local build toolchain
         run: |
           mkdir -p toolchain
           GRADLE_BIN="$(command -v gradle)"
           GRADLE_HOME="$(cd "$(dirname "$GRADLE_BIN")/.." && pwd)"
-          tar -czf toolchain/gradle-8.9.tar.gz -C "$(dirname "$GRADLE_HOME")" "$(basename "$GRADLE_HOME")"
-          tar -czf toolchain/android-sdk-35.tar.gz -C "$ANDROID_HOME" build-tools/35.0.0 platforms/android-35 licenses
-          printf '%s\n' "$GRADLE_HOME" > toolchain/gradle-home.txt
+          tar -czf /tmp/gradle-8.9.tar.gz -C "$(dirname "$GRADLE_HOME")" "$(basename "$GRADLE_HOME")"
+          tar -czf /tmp/android-sdk-35.tar.gz -C "$ANDROID_HOME" build-tools/35.0.0 platforms/android-35 licenses
+          split -b 90M -d -a 2 /tmp/gradle-8.9.tar.gz toolchain/gradle.part.
+          split -b 90M -d -a 2 /tmp/android-sdk-35.tar.gz toolchain/sdk.part.
           ls -lh toolchain
       - uses: actions/upload-artifact@v4
         with:
-          name: FINSEQ-Android-Local-Toolchain
-          path: toolchain/
+          name: FINSEQ-Gradle-Part-00
+          path: toolchain/gradle.part.00
           if-no-files-found: error
+          compression-level: 0
+      - uses: actions/upload-artifact@v4
+        with:
+          name: FINSEQ-Gradle-Part-01
+          path: toolchain/gradle.part.01
+          if-no-files-found: error
+          compression-level: 0
+      - uses: actions/upload-artifact@v4
+        with:
+          name: FINSEQ-SDK-Part-00
+          path: toolchain/sdk.part.00
+          if-no-files-found: error
+          compression-level: 0
+      - uses: actions/upload-artifact@v4
+        with:
+          name: FINSEQ-SDK-Part-01
+          path: toolchain/sdk.part.01
+          if-no-files-found: error
+          compression-level: 0
