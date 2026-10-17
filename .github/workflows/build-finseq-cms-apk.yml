@@ -16,7 +16,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  export-toolchain:
+  build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -31,37 +31,56 @@ jobs:
         run: |
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-35' 'build-tools;35.0.0'
-      - name: Export and split local build toolchain
+      - name: Apply Attendance source patch
+        working-directory: FINSEQ_CMS_Android
+        run: python3 apply_attendance_phase2.py
+      - name: Replace damaged repository PNG resources for build
         run: |
-          mkdir -p toolchain
-          GRADLE_BIN="$(command -v gradle)"
-          GRADLE_HOME="$(cd "$(dirname "$GRADLE_BIN")/.." && pwd)"
-          tar -czf /tmp/gradle-8.9.tar.gz -C "$(dirname "$GRADLE_HOME")" "$(basename "$GRADLE_HOME")"
-          tar -czf /tmp/android-sdk-35.tar.gz -C "$ANDROID_HOME" build-tools/35.0.0 platforms/android-35 licenses
-          split -b 90M -d -a 2 /tmp/gradle-8.9.tar.gz toolchain/gradle.part.
-          split -b 90M -d -a 2 /tmp/android-sdk-35.tar.gz toolchain/sdk.part.
-          ls -lh toolchain
+          python3 -m pip install --quiet pillow
+          python3 - <<'PY'
+          from pathlib import Path
+          from PIL import Image, ImageDraw, ImageFont
+          res=Path('FINSEQ_CMS_Android/app/src/main/res')
+          def logo(size, transparent=False):
+              bg=(255,255,255,0) if transparent else (255,255,255,255)
+              im=Image.new('RGBA',(size,size),bg)
+              d=ImageDraw.Draw(im)
+              navy=(16,46,86,255)
+              # clean FINSEQ mark used only to replace repository-corrupted PNG bytes at build time
+              d.rounded_rectangle((int(size*.08),int(size*.08),int(size*.92),int(size*.92)),radius=max(4,int(size*.12)),fill=navy)
+              text='FINSEQ'
+              font=ImageFont.load_default()
+              box=d.textbbox((0,0),text,font=font)
+              tw,th=box[2]-box[0],box[3]-box[1]
+              scale=max(1,int(size/(tw*1.35)))
+              try:
+                  font=ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',max(10,int(size*.16)))
+              except Exception: pass
+              box=d.textbbox((0,0),text,font=font); tw,th=box[2]-box[0],box[3]-box[1]
+              d.text(((size-tw)/2,(size-th)/2),text,font=font,fill='white')
+              return im
+          (res/'drawable').mkdir(parents=True,exist_ok=True)
+          logo(512,True).save(res/'drawable/finseq_icon_master.png','PNG')
+          logo(900,True).save(res/'drawable/finseq_company_logo_transparent.png','PNG')
+          for folder,size in [('mipmap-mdpi',48),('mipmap-hdpi',72),('mipmap-xhdpi',96),('mipmap-xxhdpi',144),('mipmap-xxxhdpi',192)]:
+              out=res/folder/'ic_launcher.png'; out.parent.mkdir(parents=True,exist_ok=True); logo(size).save(out,'PNG')
+          PY
+      - name: Build FINSEQ CMS v3.0.5.1 release APK
+        working-directory: FINSEQ_CMS_Android
+        run: gradle --no-daemon :app:assembleRelease
+      - name: Prepare build outputs
+        run: |
+          mkdir -p out
+          cp FINSEQ_CMS_Android/app/build/outputs/apk/release/app-release-unsigned.apk out/FINSEQ_CMS_V3_0_5_1_RELEASE_UNSIGNED.apk
+          cp "$ANDROID_HOME/build-tools/35.0.0/zipalign" out/zipalign
+          cp "$ANDROID_HOME/build-tools/35.0.0/apksigner" out/apksigner
+          mkdir -p out/lib
+          cp "$ANDROID_HOME/build-tools/35.0.0/lib/apksigner.jar" out/lib/apksigner.jar
+          chmod +x out/zipalign out/apksigner
+          ls -lh out/FINSEQ_CMS_V3_0_5_1_RELEASE_UNSIGNED.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: FINSEQ-Gradle-Part-00
-          path: toolchain/gradle.part.00
-          if-no-files-found: error
-          compression-level: 0
-      - uses: actions/upload-artifact@v4
-        with:
-          name: FINSEQ-Gradle-Part-01
-          path: toolchain/gradle.part.01
-          if-no-files-found: error
-          compression-level: 0
-      - uses: actions/upload-artifact@v4
-        with:
-          name: FINSEQ-SDK-Part-00
-          path: toolchain/sdk.part.00
-          if-no-files-found: error
-          compression-level: 0
-      - uses: actions/upload-artifact@v4
-        with:
-          name: FINSEQ-SDK-Part-01
-          path: toolchain/sdk.part.01
+          name: FINSEQ-CMS-V3.0.5.1-Unsigned-And-SigningTools
+          path: out/
           if-no-files-found: error
           compression-level: 0
