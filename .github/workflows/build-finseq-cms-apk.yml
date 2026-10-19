@@ -1,5 +1,6 @@
 name: Build FINSEQ CMS APK
 
+# rebuild-request: 2026-10-19
 on:
   push:
     branches: [ main ]
