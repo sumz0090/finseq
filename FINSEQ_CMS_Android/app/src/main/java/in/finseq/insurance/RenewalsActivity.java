@@ -87,7 +87,7 @@ public class RenewalsActivity extends FinseqActivity {
   Ui.run(this,()->{try{JSONObject data=ApiClient.get(this,path);Ui.ui(this,()->{if(request==sequence&&!isFinishing())show(data,reset);});}catch(Exception e){Ui.ui(this,()->{if(request==sequence)result.setText("Renewals unavailable: "+e.getMessage());});}});
  }catch(Exception e){Ui.toast(this,e.getMessage());}}
  void show(JSONObject data,boolean reset){if(reset)list.removeAllViews();JSONObject counts=data.optJSONObject("counts");if(counts!=null){next.setText("Next\n"+counts.optInt("next"));expired.setText("Expired\n"+counts.optInt("expired"));renewed.setText("Renewed\n"+counts.optInt("renewed"));}
-  int total=data.optInt("total");result.setText(total+" "+tab+" entries · Gross premium "+Ui.money(data.optDouble("listed_gross_premium"))+(total>50?" · Page "+(page+1):""));
+  int total=data.optInt("total");result.setText(total+" "+tab+" entries · Total Premium "+Ui.money(data.optDouble("listed_gross_premium"))+(total>50?" · Page "+(page+1):""));
   if(more.getParent() instanceof LinearLayout)((LinearLayout)more.getParent()).removeView(more);
   JSONArray rows=data.optJSONArray("policies");if(rows!=null)for(int i=0;i<rows.length();i++){JSONObject row=rows.optJSONObject(i);if(row!=null)addRow(row);}
   if(total==0)list.addView(Ui.sub(this,"No policies in this selection."));

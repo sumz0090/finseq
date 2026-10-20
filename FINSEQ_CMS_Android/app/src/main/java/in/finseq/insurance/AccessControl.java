@@ -26,10 +26,11 @@ public final class AccessControl {
     public static boolean has(Context c,String feature){
         if("admin".equalsIgnoreCase(Session.role(c)))return true;
         Set<String> f=features(c);
-        return !known(c) || f.contains(feature);
+        return known(c) && f.contains(feature);
     }
     public static boolean attendanceOnly(Context c){
-        if("admin".equalsIgnoreCase(Session.role(c))||!known(c))return false;
+        if("admin".equalsIgnoreCase(Session.role(c)))return false;
+        if(!known(c))return false;
         Set<String> f=features(c); if(!f.contains("attendance"))return false;
         for(String x:f)if(!x.equals("attendance")&&!x.equals("dashboard"))return false;
         return true;

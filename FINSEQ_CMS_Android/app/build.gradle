@@ -14,8 +14,8 @@ android {
         applicationId 'in.finseq.insurance'
         minSdk 26
         targetSdk 35
-        versionCode 361
-        versionName '3.0.5.1'
+        versionCode 362
+        versionName '3.0.5.2'
     }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8
@@ -33,6 +33,7 @@ android {
     }
     buildTypes {
         release {
+            debuggable false
             minifyEnabled false
             if (keyPropertiesFile.exists()) signingConfig signingConfigs.release
         }

@@ -15,6 +15,7 @@ public class SecuritySettingsActivity extends FinseqActivity {
   option(body,"Use Face / Fingerprint / Screen Lock","Use your phone Face Unlock, fingerprint or PIN/pattern/password",SecurityStore.systemLock(this),new Runnable(){public void run(){enableSystemLock();}});
   option(body,"Change PIN","Change your FINSEQ PIN. You'll need to remember this PIN at login time",SecurityStore.hasPin(this),new Runnable(){public void run(){changePin();}});
   option(body,"Skip","I would like to skip App Lock.",SecurityStore.skipped(this),new Runnable(){public void run(){confirmSkip();}});
+  option(body,"Auto-lock Timeout","Lock after "+SecurityStore.timeoutMinutes(this)+" minute(s) in background",false,new Runnable(){public void run(){chooseTimeout();}});
   FrameLayout frame=new FrameLayout(this);frame.addView(Ui.scroll(this,root),new FrameLayout.LayoutParams(-1,-1));credentialCover=new FrameLayout(this);credentialCover.setBackgroundColor(Color.rgb(8,17,29));credentialCover.setVisibility(View.GONE);frame.addView(credentialCover,new FrameLayout.LayoutParams(-1,-1));setContentView(frame);
  }
  private void option(LinearLayout body,String title,String subtitle,boolean selected,final Runnable action){
@@ -41,4 +42,6 @@ public class SecuritySettingsActivity extends FinseqActivity {
  }
  @Override protected void onActivityResult(int code,int result,Intent data){super.onActivityResult(code,result,data);if(code==RC_SECURITY_SETTINGS)enableSystemLock();}
  private void openMain(){startActivity(new Intent(this,MainActivity.class));finish();}
+ private void chooseTimeout(){final String[] labels={"1 minute","2 minutes","5 minutes"};final int[] values={1,2,5};new AlertDialog.Builder(this).setTitle("Auto-lock after background").setItems(labels,(d,which)->{SecurityStore.timeoutMinutes(this,values[which]);Ui.toast(this,"Auto-lock set to "+labels[which]);render();}).show();}
+
 }

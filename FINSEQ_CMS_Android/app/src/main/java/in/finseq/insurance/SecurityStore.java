@@ -13,6 +13,10 @@ public final class SecurityStore {
     static boolean hasPattern(Context c){return !prefs(c).getString("pattern_hash","").isEmpty();}
     static boolean biometric(Context c){return prefs(c).getBoolean("biometric",false);}
     static boolean systemLock(Context c){return prefs(c).getBoolean("system_lock",false);}
+    static int timeoutMinutes(Context c){return prefs(c).getInt("lock_timeout_minutes",2);}
+    static void timeoutMinutes(Context c,int v){prefs(c).edit().putInt("lock_timeout_minutes",v).apply();}
+    static long backgroundAt(Context c){return prefs(c).getLong("background_at",0L);}
+    static void backgroundAt(Context c,long v){prefs(c).edit().putLong("background_at",v).apply();}
 
     static void biometric(Context c,boolean v){prefs(c).edit().putBoolean("biometric",v).apply();}
     static void systemLock(Context c,boolean v){prefs(c).edit().putBoolean("system_lock",v).apply();}

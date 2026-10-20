@@ -26,7 +26,7 @@ public final class DeviceAuth {
     private static final String ALIAS="finseq_device_signing_v1";
     private static final String BASE="https://cms.finseq.in";
 
-    private static String deviceId(Context c) {
+    public static String deviceId(Context c) {
         String id=c.getSharedPreferences(PREFS,0).getString("device_id","");
         if(id.isEmpty()) {
             id=UUID.randomUUID().toString();
