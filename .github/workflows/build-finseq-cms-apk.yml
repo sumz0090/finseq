@@ -56,7 +56,7 @@ jobs:
         working-directory: FINSEQ_CMS_Android
         run: |
           grep -q 'versionCode 362' app/build.gradle
-          grep -q 'versionName "3.0.5.2"' app/build.gradle
+          grep -q "versionName '3.0.5.2'" app/build.gradle
           grep -q 'android:usesCleartextTraffic="false"' app/src/main/AndroidManifest.xml
           ! grep -q 'cleartextTrafficPermitted="true"' app/src/main/res/xml/network_security_config.xml
 
