@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - main
+      - kiran-native-v2
     paths:
       - "KIRAN_OMS_Android/**"
       - ".github/workflows/build-kiran-oms-apk.yml"
