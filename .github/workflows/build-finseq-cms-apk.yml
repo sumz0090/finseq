@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: finseq-cms-apk-${{ github.ref }}
@@ -18,19 +18,6 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    env:
-      KS_B64_A: ${{ secrets.FINSEQ_CMS_KEYSTORE_BASE64 }}
-      KS_B64_B: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-      KS_B64_C: ${{ secrets.KEYSTORE_BASE64 }}
-      KS_PASS_A: ${{ secrets.FINSEQ_CMS_KEYSTORE_PASSWORD }}
-      KS_PASS_B: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-      KS_PASS_C: ${{ secrets.KEYSTORE_PASSWORD }}
-      KEY_ALIAS_A: ${{ secrets.FINSEQ_CMS_KEY_ALIAS }}
-      KEY_ALIAS_B: ${{ secrets.ANDROID_KEY_ALIAS }}
-      KEY_ALIAS_C: ${{ secrets.KEY_ALIAS }}
-      KEY_PASS_A: ${{ secrets.FINSEQ_CMS_KEY_PASSWORD }}
-      KEY_PASS_B: ${{ secrets.ANDROID_KEY_PASSWORD }}
-      KEY_PASS_C: ${{ secrets.KEY_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
 
@@ -52,6 +39,44 @@ jobs:
         working-directory: FINSEQ_CMS_Android
         run: python3 apply_v3052_bundle.py
 
+      - name: Normalize FINSEQ Android PNG resources
+        working-directory: FINSEQ_CMS_Android
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          from PIL import Image
+
+          res = Path('app/src/main/res')
+          targets = [
+              res/'drawable/finseq_icon_master.png',
+              res/'drawable/finseq_company_logo_transparent.png',
+              res/'mipmap-mdpi/ic_launcher.png',
+              res/'mipmap-hdpi/ic_launcher.png',
+              res/'mipmap-xhdpi/ic_launcher.png',
+              res/'mipmap-xxhdpi/ic_launcher.png',
+              res/'mipmap-xxxhdpi/ic_launcher.png',
+          ]
+          for p in targets:
+              im = Image.open(p).convert('RGBA')
+              im.save(p, format='PNG', optimize=True, compress_level=9)
+
+          master = Image.open(res/'drawable/finseq_icon_master.png').convert('RGBA')
+          sizes = {
+              'mipmap-mdpi/ic_launcher.png': 48,
+              'mipmap-hdpi/ic_launcher.png': 72,
+              'mipmap-xhdpi/ic_launcher.png': 96,
+              'mipmap-xxhdpi/ic_launcher.png': 144,
+              'mipmap-xxxhdpi/ic_launcher.png': 192,
+          }
+          for rel, size in sizes.items():
+              icon = master.copy()
+              icon.thumbnail((size, size), Image.Resampling.LANCZOS)
+              canvas = Image.new('RGBA', (size, size), (0,0,0,0))
+              canvas.alpha_composite(icon, ((size-icon.width)//2, (size-icon.height)//2))
+              canvas.save(res/rel, format='PNG', optimize=True, compress_level=9)
+          print('FINSEQ PNG resources normalized')
+          PY
+
       - name: Verify release metadata
         working-directory: FINSEQ_CMS_Android
         run: |
@@ -64,36 +89,14 @@ jobs:
         working-directory: FINSEQ_CMS_Android
         run: gradle --no-daemon clean :app:assembleRelease
 
-      - name: Prepare and sign APK
+      - name: Prepare APK
         run: |
           set -e
           mkdir -p out
           UNSIGNED="FINSEQ_CMS_Android/app/build/outputs/apk/release/app-release-unsigned.apk"
           test -f "$UNSIGNED"
           cp "$UNSIGNED" out/FINSEQ_CMS_V3_0_5_2_RELEASE_UNSIGNED.apk
-
-          KS_B64="${KS_B64_A:-${KS_B64_B:-${KS_B64_C:-}}}"
-          KS_PASS="${KS_PASS_A:-${KS_PASS_B:-${KS_PASS_C:-}}}"
-          KEY_ALIAS_VALUE="${KEY_ALIAS_A:-${KEY_ALIAS_B:-${KEY_ALIAS_C:-}}}"
-          KEY_PASS_VALUE="${KEY_PASS_A:-${KEY_PASS_B:-${KEY_PASS_C:-$KS_PASS}}}"
-
-          if [ -n "$KS_B64" ] && [ -n "$KS_PASS" ] && [ -n "$KEY_ALIAS_VALUE" ]; then
-            printf '%s' "$KS_B64" | base64 -d > /tmp/finseq-release.jks
-            "$ANDROID_HOME/build-tools/35.0.0/zipalign" -p -f 4 "$UNSIGNED" /tmp/finseq-aligned.apk
-            "$ANDROID_HOME/build-tools/35.0.0/apksigner" sign \
-              --ks /tmp/finseq-release.jks \
-              --ks-key-alias "$KEY_ALIAS_VALUE" \
-              --ks-pass "pass:$KS_PASS" \
-              --key-pass "pass:$KEY_PASS_VALUE" \
-              --out out/FINSEQ_CMS_V3_0_5_2_PRODUCTION_SIGNED.apk \
-              /tmp/finseq-aligned.apk
-            "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs \
-              out/FINSEQ_CMS_V3_0_5_2_PRODUCTION_SIGNED.apk | tee out/signature-verification.txt
-          else
-            echo 'Production signing secrets unavailable; unsigned APK only.' | tee out/signature-verification.txt
-          fi
-
-          sha256sum out/*.apk > out/SHA256SUMS.txt
+          sha256sum out/FINSEQ_CMS_V3_0_5_2_RELEASE_UNSIGNED.apk > out/SHA256SUMS.txt
 
       - uses: actions/upload-artifact@v4
         with:
@@ -101,3 +104,15 @@ jobs:
           path: out/
           if-no-files-found: error
           compression-level: 0
+
+      - name: Publish unsigned APK for local production signing
+        run: |
+          set -e
+          mkdir -p build-artifacts
+          cp out/FINSEQ_CMS_V3_0_5_2_RELEASE_UNSIGNED.apk build-artifacts/FINSEQ_CMS_V3_0_5_2_RELEASE_UNSIGNED.apk
+          cp out/SHA256SUMS.txt build-artifacts/FINSEQ_CMS_V3_0_5_2_RELEASE_UNSIGNED.sha256.txt
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add build-artifacts/FINSEQ_CMS_V3_0_5_2_RELEASE_UNSIGNED.apk build-artifacts/FINSEQ_CMS_V3_0_5_2_RELEASE_UNSIGNED.sha256.txt
+          git diff --cached --quiet || git commit -m 'artifact: FINSEQ CMS v3.0.5.2 unsigned APK'
+          git push
