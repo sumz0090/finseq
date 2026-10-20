@@ -39,11 +39,12 @@ jobs:
         working-directory: FINSEQ_CMS_Android
         run: python3 apply_v3052_bundle.py
 
-      - name: Replace malformed FINSEQ icon resources
+      - name: Replace malformed FINSEQ image resources
         working-directory: FINSEQ_CMS_Android
         run: |
           set -e
           rm -f app/src/main/res/drawable/finseq_icon_master.png
+          rm -f app/src/main/res/drawable/finseq_company_logo_transparent.png
           rm -f app/src/main/res/mipmap-mdpi/ic_launcher.png
           rm -f app/src/main/res/mipmap-hdpi/ic_launcher.png
           rm -f app/src/main/res/mipmap-xhdpi/ic_launcher.png
@@ -58,6 +59,19 @@ jobs:
               <path android:fillColor="#00658C" android:pathData="M220,120 L280,120 L280,380 L250,420 L220,380 Z"/>
               <path android:fillColor="#00658C" android:pathData="M300,60 L360,60 L360,315 L330,350 L300,315 Z"/>
               <path android:fillColor="#555555" android:pathData="M70,325 C135,330 190,370 250,440 C305,340 365,255 455,205 C375,260 315,345 250,470 C190,390 135,350 70,345 Z"/>
+          </vector>
+          XML
+          cat > app/src/main/res/drawable/finseq_company_logo_transparent.xml <<'XML'
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="900dp" android:height="300dp"
+              android:viewportWidth="900" android:viewportHeight="300">
+              <path android:fillColor="#00658C" android:pathData="M90,105 L125,105 L125,210 L107,232 L90,210 Z"/>
+              <path android:fillColor="#00658C" android:pathData="M135,70 L170,70 L170,225 L152,248 L135,225 Z"/>
+              <path android:fillColor="#00658C" android:pathData="M180,35 L215,35 L215,190 L197,212 L180,190 Z"/>
+              <path android:fillColor="#555555" android:pathData="M45,195 C85,198 120,220 152,260 C190,190 230,135 290,105 C235,142 195,195 152,280 C118,235 84,213 45,210 Z"/>
+              <path android:fillColor="#00658C" android:pathData="M310,92 L340,92 L340,230 L310,230 Z M350,92 L378,92 L378,230 L350,230 Z M390,92 L420,92 L455,175 L455,92 L485,92 L485,230 L455,230 L420,145 L420,230 L390,230 Z M500,92 L530,92 L530,230 L500,230 Z M545,92 L640,92 L640,120 L575,120 L575,145 L630,145 L630,173 L575,173 L575,202 L642,202 L642,230 L545,230 Z"/>
+              <path android:fillColor="#555555" android:pathData="M690,80 C750,80 790,115 790,160 C790,205 750,240 690,240 C630,240 590,205 590,160 C590,115 630,80 690,80 Z M690,106 C650,106 622,128 622,160 C622,192 650,214 690,214 C730,214 758,192 758,160 C758,128 730,106 690,106 Z"/>
+              <path android:fillColor="#00658C" android:pathData="M670,168 L680,168 L680,200 L670,194 Z M685,150 L695,150 L695,200 L685,200 Z M700,132 L710,132 L710,190 L700,200 Z"/>
           </vector>
           XML
           cp app/src/main/res/drawable/finseq_icon_master.xml app/src/main/res/mipmap-anydpi/ic_launcher.xml
