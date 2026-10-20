@@ -39,6 +39,21 @@ jobs:
         working-directory: FINSEQ_CMS_Android
         run: python3 apply_v3052_bundle.py
 
+      - name: Fix v3.0.5.2 generated Java compile issue
+        working-directory: FINSEQ_CMS_Android
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('app/src/main/java/in/finseq/insurance/ActiveSessionsActivity.java')
+          s=p.read_text()
+          old='revoke.setOnClickListener(v->confirmRevoke(id,title));'
+          new='final String sessionTitle=title;revoke.setOnClickListener(v->confirmRevoke(id,sessionTitle));'
+          if old not in s:
+              raise SystemExit('ActiveSessions lambda target not found')
+          p.write_text(s.replace(old,new))
+          print('ActiveSessions lambda fixed')
+          PY
+
       - name: Replace malformed FINSEQ image resources
         working-directory: FINSEQ_CMS_Android
         run: |
